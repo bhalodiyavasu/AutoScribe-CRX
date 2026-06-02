@@ -7,47 +7,80 @@ window.COPILOTX_DATA = (() => {
   const rn   = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
   const digs = n => Array.from({ length: n }, () => rn(0, 9)).join('');
 
-  // ── Names ──────────────────────────────────────────────────────────────────
+  // ── Names (200+ each) ─────────────────────────────────────────────────────
   const FIRST = [
+    // Male — common across India
     'Aarav','Arjun','Vihaan','Reyan','Aditya','Dhruv','Rohan','Ishaan','Parth','Yash',
-    'Priya','Sneha','Pooja','Kavya','Ananya','Neha','Meera','Divya','Shruti','Nisha',
     'Hardik','Vatsal','Raj','Kiran','Amit','Vijay','Sanjay','Deepak','Rahul','Kushal',
     'Nikhil','Ritesh','Sachin','Suresh','Mahesh','Rakesh','Ramesh','Dinesh','Ganesh','Naresh',
     'Vivek','Manish','Rajesh','Praveen','Sunil','Anil','Pankaj','Ajay','Manoj','Vikas',
     'Akash','Ankit','Ankur','Ashish','Gaurav','Lalit','Lokesh','Mohit','Neeraj','Nitin',
+    'Farhan','Imran','Salman','Aryan','Ayaan','Mohan','Sohan','Roshan','Kishan','Chetan',
+    'Bhavesh','Jignesh','Hiren','Nilesh','Chirag','Vishal','Viral','Krunal','Kuntal','Dhaval',
+    'Bhavin','Alpesh','Dipesh','Jigar','Kapil','Kamal','Keshav','Kartik','Kunal','Kabir',
+    'Kaushik','Kalpesh','Bharat','Bhavik','Bhushan','Prabhat','Prashant','Prasad','Prakash','Pramod',
+    'Pradeep','Pravin','Pravesh','Prem','Paresh','Harpreet','Jaspreet','Manpreet','Navneet','Paramjeet',
+    'Sukhwinder','Balwinder','Rajinder','Surinder','Davinder','Gurpreet',
+    // Additional male names
+    'Abhishek','Abhinav','Akhil','Amol','Anirudh','Arnav','Atharv','Avnish','Brijesh','Chandresh',
+    'Darshan','Devendra','Deven','Dharmesh','Dilip','Dipak','Eshan','Falgun','Girish','Gopal',
+    'Govind','Hari','Harsh','Hemant','Himanshu','Hitesh','Jagdish','Jayesh','Jitendra','Joginder',
+    'Ketan','Kuldeep','Lakhan','Laxman','Madhav','Manan','Mayank','Mihir','Mitesh','Mukesh',
+    'Naman','Narendra','Naveen','Nayan','Omkar','Pankil','Paras','Parimal','Piyush','Pranav',
+    'Pratik','Pushkar','Raghav','Rajan','Ranjit','Ravi','Rishabh','Rohit','Rupesh','Sagar',
+    'Sahil','Samir','Sandeep','Saurabh','Shashank','Shivam','Shrey','Siddharth','Sumit','Tarun',
+    'Tushar','Udayan','Umesh','Utkarsh','Vaibhav','Vinay','Vinod','Yatin','Yogesh','Zubin',
+    // Female — common across India
+    'Priya','Sneha','Pooja','Kavya','Ananya','Neha','Meera','Divya','Shruti','Nisha',
     'Preeti','Ritu','Sunita','Sushma','Asha','Lata','Usha','Rekha','Madhu','Kavitha',
     'Lakshmi','Radha','Geeta','Sita','Parvati','Durga','Saraswati','Uma','Malti','Vimla',
-    'Farhan','Imran','Salman','Aryan','Ayaan','Zara','Fatima','Amira','Saniya','Riya',
-    'Tanvi','Tanya','Trisha','Aisha','Sana','Naina','Pari','Khushi','Simran','Gurpreet',
-    'Harpreet','Jaspreet','Manpreet','Navneet','Paramjeet','Sukhwinder','Balwinder','Rajinder','Surinder','Davinder',
-    'Mohan','Sohan','Roshan','Kishan','Chetan','Bhavesh','Jignesh','Hiren','Nilesh','Chirag',
-    'Vishal','Viral','Krunal','Kuntal','Dhaval','Bhavin','Alpesh','Dipesh','Jigar','Tejal',
-    'Riddhi','Siddhi','Bhoomi','Foram','Monal','Pinal','Ami','Hetal','Komal','Shreya',
-    'Kriti','Kritika','Aditi','Ahana','Ishika','Rashi','Palak','Sakshi','Swati','Harsha',
-    'Deepika','Sonam','Shilpa','Shweta','Aarti','Bharti','Kirti','Mamta','Jyoti','Jhanvi',
-    'Janvi','Nidhi','Ridhi','Vidhi','Vrinda','Vrishti','Vanshi','Vani','Kapil','Kamal',
-    'Keshav','Kartik','Kunal','Kabir','Kaushik','Kalpesh','Bharat','Bhavik','Bhavna','Bhushan',
-    'Prabhat','Prashant','Prasad','Prakash','Pramod','Pradeep','Pravin','Pravesh','Prem','Paresh',
+    'Zara','Fatima','Amira','Saniya','Riya','Tanvi','Tanya','Trisha','Aisha','Sana',
+    'Naina','Pari','Khushi','Simran','Riddhi','Siddhi','Bhoomi','Foram','Monal','Pinal',
+    'Ami','Hetal','Komal','Shreya','Kriti','Kritika','Aditi','Ahana','Ishika','Rashi',
+    'Palak','Sakshi','Swati','Harsha','Deepika','Sonam','Shilpa','Shweta','Aarti','Bharti',
+    'Kirti','Mamta','Jyoti','Jhanvi','Janvi','Nidhi','Ridhi','Vidhi','Vrinda','Vrishti',
+    'Vanshi','Vani','Bhavna','Tejal',
+    // Additional female names
+    'Aanchal','Amrita','Ankita','Archana','Avni','Bhumi','Charmi','Chetna','Disha','Ekta',
+    'Gargi','Gauri','Heena','Himani','Ira','Ishita','Jasmine','Juhi','Kajal','Kalpana',
+    'Kinjal','Krisha','Lavanya','Madhuri','Manali','Manisha','Mitali','Mrunali','Nandini','Nikita',
+    'Nimisha','Padma','Payal','Poonam','Rachna','Ragini','Rani','Renu','Richa','Roshni',
+    'Rupal','Sadhana','Sanjana','Sapna','Sejal','Shivani','Smita','Sonali','Suhani','Tanisha',
+    'Urvi','Vaishali','Vandana','Varsha','Yamini','Yukta',
   ];
 
   const LAST = [
+    // Gujarat / West India
     'Sharma','Patel','Shah','Mehta','Joshi','Desai','Gupta','Singh','Kumar','Verma',
     'Bhalodiya','Makwana','Solanki','Rathod','Chauhan','Jadeja','Parmar','Thakkar','Soni','Rajput',
-    'Agarwal','Bansal','Mittal','Goel','Khanna','Malhotra','Kapoor','Bhatia','Chopra','Anand',
-    'Tiwari','Mishra','Pandey','Shukla','Yadav','Chaudhary','Maurya','Pal','Saha','Das',
-    'Nair','Pillai','Menon','Iyer','Iyengar','Reddy','Naidu','Rao','Chari','Rajan',
-    'Mukherjee','Chatterjee','Banerjee','Ghosh','Sen','Roy','Bose','Dutta','Mitra','Chakraborty',
     'Bhatt','Trivedi','Pandya','Dave','Sheth','Vora','Bhavsar','Raval','Nayak','Khatri',
     'Mistry','Modi','Nanavati','Shroff','Dalal','Doshi','Gajjar','Inamdar','Jhaveri','Zaveri',
-    'Kulkarni','Lele','Mane','Naik','Parekh','Pathak','Ranade','Sathe','Shinde','Bhosale',
-    'Sheikh','Khan','Siddiqui','Ansari','Qureshi','Mirza','Hussain','Ali','Ahmed','Malik',
-    'Grewal','Dhillon','Sidhu','Brar','Gill','Sandhu','Cheema','Virk','Bajwa','Bains',
+    // North India
+    'Agarwal','Bansal','Mittal','Goel','Khanna','Malhotra','Kapoor','Bhatia','Chopra','Anand',
+    'Tiwari','Mishra','Pandey','Shukla','Yadav','Chaudhary','Maurya','Pal','Saha','Das',
     'Chandra','Dubey','Garg','Handa','Irani','Jain','Kaul','Lamba','Nagpal','Oberoi',
-    'Prasad','Saxena','Tandon','Upadhyay','Vaswani','Wagh','Kohli','Mehra','Narang','Suri',
-    'Acharya','Bedi','Chadha','Deol','Goenka','Jolly','Raghunathan','Venkat','Thakur','Lal',
+    'Prasad','Saxena','Tandon','Upadhyay','Vaswani','Kohli','Mehra','Narang','Suri',
+    // South India
+    'Nair','Pillai','Menon','Iyer','Iyengar','Reddy','Naidu','Rao','Chari','Rajan',
     'Subramaniam','Krishnamurthy','Swaminathan','Venkatesan','Narayanan','Balakrishnan','Sundaram','Ramachandran',
+    'Kulkarni','Lele','Mane','Naik','Parekh','Pathak','Ranade','Sathe','Shinde','Bhosale',
+    // East India
+    'Mukherjee','Chatterjee','Banerjee','Ghosh','Sen','Roy','Bose','Dutta','Mitra','Chakraborty',
+    // Muslim names
+    'Sheikh','Khan','Siddiqui','Ansari','Qureshi','Mirza','Hussain','Ali','Ahmed','Malik',
+    // Sikh / Punjab
+    'Grewal','Dhillon','Sidhu','Brar','Gill','Sandhu','Cheema','Virk','Bajwa','Bains',
+    // Additional surnames
+    'Acharya','Bedi','Chadha','Deol','Goenka','Jolly','Raghunathan','Venkat','Thakur','Lal',
+    'Wagh','Bajaj','Barot','Behl','Bhandari','Bhardwaj','Bhutra','Bisht','Bohra','Chahar',
+    'Dahiya','Dhawan','Dixit','Dua','Dutt','Gambhir','Goswami','Grover','Gulati','Hora',
+    'Jaggi','Jassal','Johar','Juneja','Kakkar','Kalra','Kamboj','Kashyap','Katyal','Khurana',
+    'Kochhar','Luthra','Mahajan','Mangal','Mathur','Narula','Pandit','Pahuja','Randhawa','Rastogi',
+    'Saini','Saluja','Sethi','Sodhani','Talwar','Thapar','Trehan','Tuteja','Wadhwa','Wig',
+    'Arora','Bakshi','Chawla','Dhingra','Gujral','Hanspal','Khattar','Madan','Rawat','Vohra',
   ];
 
+  // ── Cities (100+) ─────────────────────────────────────────────────────────
   const CITIES = [
     'Ahmedabad','Surat','Vadodara','Rajkot','Gandhinagar','Bhavnagar','Jamnagar','Anand','Nadiad','Mehsana',
     'Mumbai','Pune','Nagpur','Nashik','Thane','Aurangabad','Solapur','Kolhapur','Amravati','Nanded',
@@ -71,6 +104,7 @@ window.COPILOTX_DATA = (() => {
     'Indian','Indian','Indian','Indian','Indian',
   ];
 
+  // ── Streets (55+) ─────────────────────────────────────────────────────────
   const STREETS = [
     'MG Road','Station Road','Gandhi Nagar','Nehru Chowk','Ashram Road','Ring Road','Relief Road',
     'Navrangpura','Satellite Road','CG Road','Kalanala','SG Highway','Civil Lines','Mall Road',
@@ -79,13 +113,26 @@ window.COPILOTX_DATA = (() => {
     'LBS Marg','Eastern Express Highway','Marine Drive','Connaught Place','Janpath','Lodhi Road',
     'Banjara Hills Road','Jubilee Hills Road','Hitech City Road','FC Road','JM Road','Baner Road',
     'Koregaon Park Road','Tilak Road','Law College Road','Karve Road','Senapati Bapat Road',
+    // Additional streets to reach 55+
+    'Lal Darwaja Road','Manekchowk Road','Manek Baug Road','Paldi Road','Ambawadi Road',
+    'Vastrapur Lake Road','Bopal Road','Science City Road','Sarkhej Road','Naroda Road',
+    'SP Ring Road','Drive In Road','Thaltej Road','Prahlad Nagar Road','Gurukul Road',
+    'Shyamal Cross Road','Bodakdev Road','Jodhpur Cross Road','Maninagar Road','Gomtipur Road',
+    'Chandni Chowk','Rajendra Nagar Road','Hazratganj Road','Aminabad Road','Karol Bagh Road',
+    'Laxmi Nagar Road','Dwarka Sector Road','Rohini Sector Road','Pitampura Road','Model Town Road',
   ];
 
+  // ── Areas (35+) ───────────────────────────────────────────────────────────
   const AREAS = [
     'Near Railway Station','Opposite Bus Stand','Main Chowk','Sector 12','Block B',
     'Near City Mall','Behind Post Office','Opposite School','Near Hospital','Main Market Area',
     'Industrial Area','Residential Colony','Phase 1','Phase 2','Phase 3',
     'Extension Area','Civil Lines Area','Heritage Area','Commercial Zone','IT Park Area',
+    // Additional areas to reach 35+
+    'Near Town Hall','Opposite Temple','Behind Municipal Office','Near University Gate','Old City Area',
+    'New Town Extension','Lake View Colony','Green Park Society','Shanti Nagar','Jawahar Nagar',
+    'Sadar Bazaar Area','Model Town','Subhash Nagar','Vikas Puri','Gandhi Colony',
+    'Panchsheel Enclave','Defence Colony','Lajpat Nagar','Greater Kailash','Vasant Vihar',
   ];
 
   const BANKS = [
@@ -109,7 +156,14 @@ window.COPILOTX_DATA = (() => {
   ];
 
   const BLOOD_GROUPS = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
-  const EMAIL_DOMAINS = ['gmail.com','yahoo.in','rediffmail.com','outlook.in','yahoo.com','hotmail.com'];
+
+  // ── Email domains — Indian-specific + international ───────────────────────
+  const EMAIL_DOMAINS = [
+    'gmail.com','yahoo.in','rediffmail.com','outlook.in','yahoo.com','hotmail.com',
+    'protonmail.com','zoho.in','mail.com','aol.com','icloud.com','yandex.com',
+    'sify.com','indiatimes.com','live.in','msn.com',
+  ];
+
   const PINS = ['380001','380006','395001','390001','360001','361001','400001','411001','110001','560001','600001','700001','302001','500001','600017','411005','380015','395003','390007','382007'];
 
   // ── Session identity (consistent within one fill run) ────────────────────
@@ -120,10 +174,12 @@ window.COPILOTX_DATA = (() => {
   const state      = pick(STATES);
   const pin        = pick(PINS);
   const address    = `${rn(1, 999)}, ${pick(STREETS)}, ${pick(AREAS)}, ${city} - ${pin}`;
-  const phone      = Math.random() < 0.5
-    ? `+91 ${pick(['6','7','8','9'])}${digs(4)} ${digs(5)}`
-    : pick(['6','7','8','9']) + digs(9);
-  const altPhone   = pick(['6','7','8','9']) + digs(9);
+
+  // ── Phone: always +91 prefix with Indian format ───────────────────────────
+  const rawPhone   = pick(['6','7','8','9']) + digs(9);
+  const phone      = `+91 ${rawPhone.slice(0,5)} ${rawPhone.slice(5)}`;
+  const altRaw     = pick(['6','7','8','9']) + digs(9);
+  const altPhone   = `+91 ${altRaw.slice(0,5)} ${altRaw.slice(5)}`;
   const email      = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${rn(1, 99)}@${pick(EMAIL_DOMAINS)}`;
 
   const sH = rn(8, 14), eH = rn(sH + 3, Math.min(sH + 10, 23));

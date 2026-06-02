@@ -367,6 +367,63 @@
   const filledEls = new Set();
 
   // ═══════════════════════════════════════════════════════════════════════════
+  //  resetScope — clears all existing field data before filling
+  // ═══════════════════════════════════════════════════════════════════════════
+  const resetScope = scope => {
+    // Clear text / number / email / tel / textarea inputs
+    Array.from(scope.querySelectorAll(
+      'input:not([type="checkbox"]):not([type="radio"]):not([type="file"])' +
+      ':not([type="hidden"]):not([type="submit"]):not([type="button"])' +
+      ':not([type="image"]):not([type="reset"]):not([type="password"])' +
+      ':not([disabled]):not([readonly]),' +
+      'textarea:not([disabled]):not([readonly])'
+    )).filter(el => !shouldSkip(el) && (isVisible(el) || isInDom(el))).forEach(el => {
+      try {
+        setVal(el, '');
+      } catch (_) {}
+    });
+
+    // Reset native <select> to first option
+    scope.querySelectorAll('select:not([disabled])').forEach(el => {
+      if (!isVisible(el)) return;
+      try {
+        if (el.options.length > 0) setVal(el, el.options[0].value);
+      } catch (_) {}
+    });
+
+    // Uncheck all checkboxes
+    scope.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(el => {
+      if (!isVisible(el)) return;
+      if (el.checked) {
+        try {
+          const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
+          if (desc?.set) desc.set.call(el, false); else el.checked = false;
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        } catch (_) {}
+      }
+    });
+
+    // Uncheck all radio buttons
+    scope.querySelectorAll('input[type="radio"]:not([disabled])').forEach(el => {
+      if (!isVisible(el)) return;
+      if (el.checked) {
+        try {
+          const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
+          if (desc?.set) desc.set.call(el, false); else el.checked = false;
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        } catch (_) {}
+      }
+    });
+
+    // Reset custom toggles [role="switch"] / [role="checkbox"]
+    scope.querySelectorAll('[role="switch"]:not([disabled]),[role="checkbox"]:not(input):not([disabled])').forEach(el => {
+      if (!isVisible(el)) return;
+      const isOn = el.getAttribute('aria-checked') === 'true' || el.dataset.state === 'checked';
+      if (isOn) tap(el);
+    });
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
   //  fillScope — fills all fields visible within `scope`
   // ═══════════════════════════════════════════════════════════════════════════
   const fillScope = async scope => {
@@ -655,6 +712,10 @@
       document.querySelector('form')                        ||
       document.body;
 
+    // ── Form reset — clear existing data before filling ─────────────────────
+    resetScope(scope);
+    await sleep(200); // let React state propagate after reset
+
     // ── Tab orchestration ────────────────────────────────────────────────────
     // Fills the active tab, then each inactive tab in sequence, then returns
     // to the originally active tab. This handles multi-step / wizard forms.
@@ -716,7 +777,7 @@
     });
 
     showToast(filledCount);
-    try { chrome.runtime.sendMessage({ type: 'COPILOTX_DONE' }); } catch (_) {}
+    try { chrome.runtime.sendMessage({ type: 'COPILOTX_DONE', count: filledCount }); } catch (_) {}
 
   } finally {
     window.__copilotxRunning = false;
