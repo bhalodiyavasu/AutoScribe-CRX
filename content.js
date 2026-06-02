@@ -8,7 +8,6 @@
   // ── Constants ──────────────────────────────────────────────────────────────
   const THEME        = '#22c55e';
   const GLOW_MS      = 1000;
-  const GLOW_DELAY   = 50;   // after React re-render settles
   const TAB_WAIT_MS  = 420;
   const VERIFY_MS    = 420;
 
@@ -64,13 +63,28 @@
   const getKey = el => (el.name || el.id || el.getAttribute('data-name') || '').trim();
 
   // ── Visibility check ──────────────────────────────────────────────────────
+  // Walk ancestors for display:none/visibility:hidden — does NOT use offsetParent
+  // because offsetParent is null inside position:fixed modals/dialogs, causing
+  // all inputs there to be skipped incorrectly.
   const isVisible = el => {
-    if (!el.offsetParent && el.tagName !== 'BODY') return false;
-    if (el.offsetWidth === 0 && el.offsetHeight === 0) return false;
     let n = el;
     while (n && n !== document.body) {
       const s = getComputedStyle(n);
-      if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return false;
+      if (s.display === 'none' || s.visibility === 'hidden') return false;
+      n = n.parentElement;
+    }
+    // getBoundingClientRect works correctly for fixed/absolute elements
+    const r = el.getBoundingClientRect();
+    return r.width > 0 || r.height > 0;
+  };
+
+  // Lighter check for backing inputs (e.g. hidden date input inside a custom picker)
+  // Only rejects elements that are truly invisible via display:none on an ancestor.
+  const isInDom = el => {
+    if (!document.contains(el)) return false;
+    let n = el;
+    while (n && n !== document.body) {
+      if (getComputedStyle(n).display === 'none') return false;
       n = n.parentElement;
     }
     return true;
@@ -123,16 +137,16 @@
   };
 
   /*
-   * glow — applies highlight after React reconciliation settles.
-   * wrapped=true  → find the visual container (date, custom select)
+   * glow — applies highlight immediately after fill so React's synchronous
+   * reconciliation (already done by the time setVal returns) cannot race with it.
+   * wrapped=true  → find the visual container (date, custom select, custom input)
    * wrapped=false → apply directly on el (text, number, email, tel)
    */
   const glow = (el, wrapped = false) => {
-    setTimeout(() => {
-      const target = wrapped ? findVisualTarget(el) : el;
-      const cleanup = applyGlow(target);
-      setTimeout(cleanup, GLOW_MS);
-    }, GLOW_DELAY);
+    const target = wrapped ? findVisualTarget(el) : el;
+    if (!document.contains(target)) return;
+    const cleanup = applyGlow(target);
+    setTimeout(cleanup, GLOW_MS);
   };
 
   // ── Framework-agnostic value setter ───────────────────────────────────────
@@ -150,7 +164,11 @@
                                   HTMLInputElement.prototype;
 
     const nativeSet = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-    if (nativeSet) nativeSet.call(el, val); else el.value = val;
+    // Wrap in try-catch: setting a non-numeric string on input[type="number"],
+    // or an invalid date on input[type="date"], throws a DOMException.
+    try {
+      if (nativeSet) nativeSet.call(el, val); else el.value = val;
+    } catch (_) { return; }
 
     ['input', 'change', 'blur'].forEach(type =>
       el.dispatchEvent(new Event(type, { bubbles: true }))
@@ -398,7 +416,23 @@
       } else if (type === 'tel') {
         val = D.resolveText(key, lbl, plh, 'tel');
       } else {
-        val = D.resolveText(key, lbl, plh, type);
+        // Detect custom date pickers: type="text" with placeholder like DD-MM-YYYY, MM/DD/YYYY, YYYY-MM-DD
+        const up = plh.toUpperCase();
+        const isDatePlh = /^[DMY]{1,4}[-\/\.][DMY]{1,2}[-\/\.][DMY]{2,4}$/.test(up);
+        if (isDatePlh) {
+          const sep  = up.includes('/') ? '/' : up.includes('.') ? '.' : '-';
+          const c2   = norm(`${key} ${lbl}`);
+          const raw  = /birth|dob|birthday/.test(c2) ? D.pastDate(22, 42)
+                     : /join|start|from|begin/.test(c2) ? D.futureDate(1, 90)
+                     : /confirm|end|expir|to/.test(c2)  ? D.futureDate(90, 365)
+                     : D.futureDate(0, 180);
+          const [yr, mo, dy] = raw.split('-');
+          val = up.startsWith('Y') ? `${yr}${sep}${mo}${sep}${dy}`
+              : up.startsWith('D') ? `${dy}${sep}${mo}${sep}${yr}`
+              :                      `${mo}${sep}${dy}${sep}${yr}`;
+        } else {
+          val = D.resolveText(key, lbl, plh, type);
+        }
       }
 
       if (val != null) {
@@ -436,8 +470,11 @@
     });
 
     // ── Phase 3: Date inputs ─────────────────────────────────────────────────
+    // Uses isInDom (not isVisible) because custom date picker components often
+    // render a hidden backing input[type="date"] with zero dimensions — it must
+    // still be filled via setVal so React state updates correctly.
     scope.querySelectorAll('input[type="date"]:not([disabled]):not([readonly])').forEach(el => {
-      if (filledEls.has(el) || !isVisible(el)) return;
+      if (filledEls.has(el) || !isInDom(el)) return;
       const c = norm(`${getKey(el)} ${getLabel(el)}`);
       let date;
       if (/birth|dob|birthday/.test(c))    date = D.pastDate(22, 42);
@@ -549,6 +586,58 @@
       filledEls.add(trig);
       filledEls.add(addBtn);
     }
+
+    // ── Cascade pass: fill selects that were disabled and became enabled ─────
+    // Pattern: Country select fills → State becomes enabled → State fills →
+    // City becomes enabled → City fills, etc.
+    // Runs up to 5 times (handles deep chains), stops early if nothing new found.
+    for (let pass = 0; pass < 5; pass++) {
+      await sleep(350); // wait for React state to propagate + re-render
+      let gained = 0;
+
+      // Native selects that just became enabled
+      scope.querySelectorAll('select:not([disabled])').forEach(el => {
+        if (filledEls.has(el) || !isVisible(el)) return;
+        const opts = Array.from(el.options).filter(o => o.value && !o.disabled);
+        if (!opts.length) return;
+        const key = getKey(el), lbl = getLabel(el);
+        const smart = D.resolveSelect(key, lbl, opts.map(o => ({ text: o.text, value: o.value })));
+        const chosen = smart
+          ? opts.find(o => o.value === smart.value || o.text === smart.text) ?? D.pick(opts)
+          : D.pick(opts);
+        try { setVal(el, chosen.value); glow(el, true); filledEls.add(el); filledCount++; gained++; } catch (_) {}
+      });
+
+      // Custom dropdowns that just became enabled
+      const freshDropdowns = Array.from(scope.querySelectorAll(DROPDOWN_SEL))
+        .filter(b => !filledEls.has(b) && isVisible(b));
+      for (const trig of freshDropdowns) {
+        await fillDropdown(trig, getLabel(trig), flat => D.pick(flat));
+        glow(trig, true);
+        filledEls.add(trig);
+        filledCount++;
+        gained++;
+      }
+
+      // Text/number inputs that just became enabled (e.g. "Other" free-text field)
+      Array.from(scope.querySelectorAll(
+        'input:not([type="date"]):not([type="checkbox"]):not([type="radio"])' +
+        ':not([type="file"]):not([type="hidden"]):not([type="password"])' +
+        ':not([disabled]):not([readonly]),textarea:not([disabled])'
+      )).filter(el => !shouldSkip(el) && !filledEls.has(el) && isVisible(el) && !el.value.trim())
+      .forEach(el => {
+        const type = (el.type || 'text').toLowerCase();
+        const key = getKey(el), lbl = getLabel(el), plh = (el.placeholder || '').trim();
+        const val = type === 'number'
+          ? D.resolveText(key, lbl, plh, 'number') ?? D.rn(el.min !== '' ? Number(el.min) : 1, el.max !== '' ? Number(el.max) : 100)
+          : D.resolveText(key, lbl, plh, type);
+        if (val != null) {
+          try { el.focus({ preventScroll: true }); setVal(el, String(val)); glow(el); filledEls.add(el); filledCount++; gained++; } catch (_) {}
+        }
+      });
+
+      if (gained === 0) break; // nothing newly enabled — cascade is complete
+    }
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -578,6 +667,9 @@
         tap(tab);
         await sleep(TAB_WAIT_MS);
         await fillScope(scope);
+        // Brief pause: lets the glow be visible on this tab before we switch.
+        // Without this, the next tap() fires before glow has rendered (async paint).
+        await sleep(120);
       }
       // Return to originally active tab
       if (activeTabs[0]) { tap(activeTabs[0]); await sleep(200); }
@@ -614,7 +706,7 @@
     });
 
     scope.querySelectorAll('input[type="date"]:not([disabled]):not([readonly])').forEach(el => {
-      if (!isVisible(el) || el.value) return;
+      if (!isInDom(el) || el.value) return;
       const c = norm(`${getKey(el)} ${getLabel(el)}`);
       const d = /birth|dob/.test(c) ? D.pastDate(22,42)
               : /join|start|from/.test(c) ? D.futureDate(1,90)

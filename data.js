@@ -178,7 +178,7 @@ window.COPILOTX_DATA = (() => {
     { match: ['joiningdate','joining','joindate'],   value: () => futureDate(1,90) },
     { match: ['confirmationdate'],                   value: () => futureDate(90,365) },
     { match: ['bloodgroup','blood'],                 value: () => pick(BLOOD_GROUPS) },
-    { match: ['designation','jobtitle','position'],  value: () => pick(DESIGNATIONS) },
+    { match: ['designation','jobtitle'],             value: () => pick(DESIGNATIONS) },
     { match: ['department','dept'],                  value: () => pick(DEPARTMENTS) },
     { match: ['gender','sex'],                       value: () => pick(['Male','Female','Other']) },
     { match: ['maritalstatus','marital'],            value: () => pick(['Single','Married','Divorced','Widowed']) },
@@ -206,7 +206,13 @@ window.COPILOTX_DATA = (() => {
   function resolveText(key, label, placeholder, type) {
     const c = _norm(`${key} ${label} ${placeholder}`);
     for (const rule of RULES) {
-      if (rule.match.some(p => c.includes(p))) return rule.value();
+      if (rule.match.some(p => c.includes(p))) {
+        const val = rule.value();
+        // Skip rules that produce non-numeric strings for number inputs —
+        // setting a string on input[type="number"] throws a DOMException.
+        if (type === 'number' && isNaN(Number(String(val)))) continue;
+        return val;
+      }
     }
     if (type === 'email')    return email;
     if (type === 'tel')      return phone;
