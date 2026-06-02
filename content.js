@@ -1,35 +1,26 @@
 (async () => {
-  if (window.__copilotxRunning) return;
-  window.__copilotxRunning = true;
-
-  const D = window.COPILOTX_DATA;
-  if (!D) { window.__copilotxRunning = false; return; }
+  // If panel already exists, don't re-mount it, just highlight it
+  if (document.getElementById('copilotx-panel-root')) {
+    const root = document.getElementById('copilotx-panel-root');
+    const panel = root.shadowRoot?.querySelector('.copilotx-floating');
+    if (panel) {
+      panel.style.transform = 'scale(1.05)';
+      setTimeout(() => { panel.style.transform = 'scale(1)'; }, 150);
+    }
+    return;
+  }
 
   // ── Constants ──────────────────────────────────────────────────────────────
   const THEME        = '#22c55e';
   const GLOW_MS      = 1000;
-  const TAB_WAIT_MS  = 420;
-  const VERIFY_MS    = 420;
+  const TAB_WAIT_MS  = 500;
 
   // ── Utilities ─────────────────────────────────────────────────────────────
   const sleep  = ms => new Promise(r => setTimeout(r, ms));
-  const norm   = s  => D._norm(s);
+  const norm   = s  => String(s).toLowerCase().replace(/[-_\s[\]./*:]/g,'');
   const clean  = s  => s.replace(/[*\s]+$/g, '').trim();
 
-  // ── Animation styles (injected once) ──────────────────────────────────────
-  if (!document.getElementById('__cpx_style')) {
-    const s = document.createElement('style');
-    s.id = '__cpx_style';
-    s.textContent = `
-      @keyframes __cpx_in  { from{transform:translateX(110%);opacity:0} to{transform:translateX(0);opacity:1} }
-      @keyframes __cpx_out { from{transform:translateX(0);opacity:1}    to{transform:translateX(110%);opacity:0} }
-    `;
-    document.head.appendChild(s);
-  }
-
   // ── Label resolution ──────────────────────────────────────────────────────
-  // Priority: aria-label → aria-labelledby → label[for] → ancestor label → data attrs
-  // Covers: plain HTML, React, Next.js, Vue, Angular, Shadcn, MUI, Ant Design, Headless UI
   const getLabel = el => {
     const aria = el.getAttribute('aria-label');
     if (aria) return clean(aria);
@@ -56,16 +47,12 @@
       if (fallback) return clean(fallback);
       node = node.parentElement;
     }
-
     return '';
   };
 
   const getKey = el => (el.name || el.id || el.getAttribute('data-name') || '').trim();
 
   // ── Visibility check ──────────────────────────────────────────────────────
-  // Walk ancestors for display:none/visibility:hidden — does NOT use offsetParent
-  // because offsetParent is null inside position:fixed modals/dialogs, causing
-  // all inputs there to be skipped incorrectly.
   const isVisible = el => {
     let n = el;
     while (n && n !== document.body) {
@@ -73,13 +60,11 @@
       if (s.display === 'none' || s.visibility === 'hidden') return false;
       n = n.parentElement;
     }
-    // getBoundingClientRect works correctly for fixed/absolute elements
     const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) return true; // Allow elements in active animations
     return r.width > 0 || r.height > 0;
   };
 
-  // Lighter check for backing inputs (e.g. hidden date input inside a custom picker)
-  // Only rejects elements that are truly invisible via display:none on an ancestor.
   const isInDom = el => {
     if (!document.contains(el)) return false;
     let n = el;
@@ -93,16 +78,12 @@
   const shouldSkip = el => {
     if (el.disabled || el.readOnly) return true;
     const t = (el.type || '').toLowerCase();
-    if (['hidden','submit','button','file','radio','password','image','reset'].includes(t)) return true;
+    if (['hidden','submit','button','file','password','image','reset'].includes(t)) return true;
     const k = (el.name || el.id || el.placeholder || '').toLowerCase();
     return k.includes('search') || k.includes('filter') || (el.maxLength > 0 && el.maxLength <= 1);
   };
 
   // ── Visual feedback ───────────────────────────────────────────────────────
-  /*
-   * findVisualTarget — walks up to the nearest styled ancestor.
-   * For custom inputs/selects where the visual border lives on a wrapper div.
-   */
   const findVisualTarget = el => {
     const elRect = el.getBoundingClientRect();
     const elH = elRect.height || 1;
@@ -120,11 +101,6 @@
     return target;
   };
 
-  /*
-   * applyGlow — uses outline which natively follows border-radius in Chrome.
-   * Falls back to box-shadow for elements where outline is suppressed by CSS.
-   * 'important' ensures it overrides any framework styles.
-   */
   const applyGlow = el => {
     el.style.setProperty('outline',        `2px solid ${THEME}`, 'important');
     el.style.setProperty('outline-offset', '2px',                'important');
@@ -136,12 +112,6 @@
     };
   };
 
-  /*
-   * glow — applies highlight immediately after fill so React's synchronous
-   * reconciliation (already done by the time setVal returns) cannot race with it.
-   * wrapped=true  → find the visual container (date, custom select, custom input)
-   * wrapped=false → apply directly on el (text, number, email, tel)
-   */
   const glow = (el, wrapped = false) => {
     const target = wrapped ? findVisualTarget(el) : el;
     if (!document.contains(target)) return;
@@ -150,13 +120,6 @@
   };
 
   // ── Framework-agnostic value setter ───────────────────────────────────────
-  /*
-   * Three-layer approach:
-   *   1. Native prototype setter  → bypasses React/Vue read-only descriptor
-   *   2. Full DOM event chain     → Vue, Angular, vanilla JS all listen here
-   *   3. React fiber direct call  → controlled components, react-hook-form,
-   *      custom date pickers that ignore DOM events
-   */
   const setVal = (el, val) => {
     const proto =
       el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype :
@@ -164,8 +127,6 @@
                                   HTMLInputElement.prototype;
 
     const nativeSet = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-    // Wrap in try-catch: setting a non-numeric string on input[type="number"],
-    // or an invalid date on input[type="date"], throws a DOMException.
     try {
       if (nativeSet) nativeSet.call(el, val); else el.value = val;
     } catch (_) { return; }
@@ -213,6 +174,28 @@
     );
   };
 
+  // ── React fiber dropdown options extractor ────────────────────────────────
+  const getFiberOptions = trigger => {
+    try {
+      const fk = Object.keys(trigger).find(k =>
+        k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')
+      );
+      if (!fk) return null;
+      let fiber = trigger[fk];
+      while (fiber) {
+        const mp = fiber.memoizedProps;
+        if (mp?.options && Array.isArray(mp.options) && mp.options.length > 0) {
+          return mp.options
+            .flatMap(o => (o.data && Array.isArray(o.data)) ? o.data : [o])
+            .filter(o => !o.disabled)
+            .map(o => ({ text: o.label ?? String(o.value ?? o), value: o.value ?? o }));
+        }
+        fiber = fiber.return;
+      }
+    } catch (_) {}
+    return null;
+  };
+
   // ── React fiber: fill controlled select/dropdown ──────────────────────────
   const fillViaFiber = (trigger, pickFn) => {
     try {
@@ -257,7 +240,7 @@
     return false;
   };
 
-  // ── Overlay item collector (framework-agnostic) ────────────────────────────
+  // ── Overlay item collector ────────────────────────────────────────────────
   const getOverlayItems = () =>
     Array.from(document.querySelectorAll('[role="menuitem"],[role="option"]')).filter(el =>
       !el.hasAttribute('data-disabled') &&
@@ -267,14 +250,8 @@
     );
 
   // ── Silent overlay fallback ────────────────────────────────────────────────
-  /*
-   * Opens the dropdown, waits for portal, picks an item — all while hiding
-   * the popup so the user doesn't see a flash. Covers Radix, MUI, Ant Design,
-   * Headless UI, and any custom portal-based dropdown.
-   */
   const silentSelectFallback = async (trigger, pickFn) => {
     let portal = null;
-
     const hideEl = node => {
       node.style.setProperty('visibility', 'hidden', 'important');
       node.style.setProperty('animation',  'none',   'important');
@@ -302,7 +279,6 @@
     if (chosen) {
       tap(chosen);
     } else {
-      // Close without firing Escape on document (would close modals/sidebars)
       tap(trigger);
     }
 
@@ -310,67 +286,24 @@
     if (portal) portal.style.visibility = '';
   };
 
-  // ── Unified dropdown filler ────────────────────────────────────────────────
-  const fillDropdown = async (trigger, label, pickFn) => {
-    // Try React fiber first (zero-flash, works for most RHF / controlled components)
-    if (fillViaFiber(trigger, pickFn)) return;
-
-    // Try smart label-aware fiber pick
-    const key = getKey(trigger), lbl = label || getLabel(trigger);
-    const smartPick = flat => {
-      const resolved = D.resolveSelect(key, lbl, flat.map(o => ({ text: o.label ?? String(o.value ?? o), value: o.value ?? o })));
-      return resolved ?? D.pick(flat);
-    };
-    if (fillViaFiber(trigger, smartPick)) return;
-
-    // DOM overlay fallback
-    await silentSelectFallback(trigger, items => {
-      if (!items.length) return null;
-      const resolved = D.resolveSelect(key, lbl, items.map(o => ({ text: o.textContent.trim(), value: o.getAttribute('data-value') ?? o.textContent.trim() })));
-      if (resolved) {
-        const text = resolved.text ?? resolved.value ?? resolved;
-        return items.find(i => i.textContent.trim() === String(text)) ?? D.pick(items);
-      }
-      return D.pick(items);
-    });
-  };
-
-  // ── Toast notification ────────────────────────────────────────────────────
-  const showToast = count => {
-    document.getElementById('__cpx_toast')?.remove();
-    const el = document.createElement('div');
-    el.id = '__cpx_toast';
-    el.textContent = `CopilotX: ${count} field${count !== 1 ? 's' : ''} filled`;
-    Object.assign(el.style, {
-      position:   'fixed',
-      top:        '20px',
-      right:      '20px',
-      background: THEME,
-      color:      '#14532d',
-      padding:    '10px 18px',
-      borderRadius: '8px',
-      fontSize:   '14px',
-      fontWeight: '600',
-      fontFamily: 'system-ui,-apple-system,sans-serif',
-      zIndex:     '2147483647',
-      animation:  '__cpx_in 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards',
-      pointerEvents: 'none',
-      boxShadow:  '0 4px 16px rgba(34,197,94,0.3)',
-    });
-    document.body.appendChild(el);
-    setTimeout(() => { el.style.animation = '__cpx_out 0.35s ease forwards'; }, 2600);
-    setTimeout(() => el.remove(), 3000);
-  };
-
   // ── State ─────────────────────────────────────────────────────────────────
   let filledCount = 0;
   const filledEls = new Set();
+  let elIdCounter = 0;
+
+  const getOrAssignId = el => {
+    let id = el.getAttribute('data-copilotx-id');
+    if (!id) {
+      id = `f_${elIdCounter++}`;
+      el.setAttribute('data-copilotx-id', id);
+    }
+    return id;
+  };
 
   // ═══════════════════════════════════════════════════════════════════════════
-  //  resetScope — clears all existing field data before filling
+  //  resetScope — clears all existing fields before filling
   // ═══════════════════════════════════════════════════════════════════════════
   const resetScope = scope => {
-    // Clear text / number / email / tel / textarea inputs
     Array.from(scope.querySelectorAll(
       'input:not([type="checkbox"]):not([type="radio"]):not([type="file"])' +
       ':not([type="hidden"]):not([type="submit"]):not([type="button"])' +
@@ -378,20 +311,14 @@
       ':not([disabled]):not([readonly]),' +
       'textarea:not([disabled]):not([readonly])'
     )).filter(el => !shouldSkip(el) && (isVisible(el) || isInDom(el))).forEach(el => {
-      try {
-        setVal(el, '');
-      } catch (_) {}
+      try { setVal(el, ''); } catch (_) {}
     });
 
-    // Reset native <select> to first option
     scope.querySelectorAll('select:not([disabled])').forEach(el => {
       if (!isVisible(el)) return;
-      try {
-        if (el.options.length > 0) setVal(el, el.options[0].value);
-      } catch (_) {}
+      try { if (el.options.length > 0) setVal(el, el.options[0].value); } catch (_) {}
     });
 
-    // Uncheck all checkboxes
     scope.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(el => {
       if (!isVisible(el)) return;
       if (el.checked) {
@@ -403,7 +330,6 @@
       }
     });
 
-    // Uncheck all radio buttons
     scope.querySelectorAll('input[type="radio"]:not([disabled])').forEach(el => {
       if (!isVisible(el)) return;
       if (el.checked) {
@@ -415,7 +341,6 @@
       }
     });
 
-    // Reset custom toggles [role="switch"] / [role="checkbox"]
     scope.querySelectorAll('[role="switch"]:not([disabled]),[role="checkbox"]:not(input):not([disabled])').forEach(el => {
       if (!isVisible(el)) return;
       const isOn = el.getAttribute('aria-checked') === 'true' || el.dataset.state === 'checked';
@@ -424,183 +349,111 @@
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
-  //  fillScope — fills all fields visible within `scope`
+  //  scanScope — discovers all fields to be filled
   // ═══════════════════════════════════════════════════════════════════════════
-  const fillScope = async scope => {
+  const scanScope = scope => {
+    const fields = [];
 
-    // ── Phase 1: Text / number / tel / email / textarea ─────────────────────
+    // 1. Text inputs, numbers, textareas
     const textInputs = Array.from(scope.querySelectorAll(
       'input:not([type="date"]):not([type="checkbox"]):not([type="radio"])' +
       ':not([type="file"]):not([type="hidden"]):not([type="password"])' +
-      ':not([disabled]):not([readonly]),' +
-      'textarea:not([disabled])'
+      ':not([disabled]):not([readonly]),textarea:not([disabled])'
     )).filter(el => !shouldSkip(el) && !filledEls.has(el) && isVisible(el));
-
-    // Required fields first
-    textInputs.sort((a, b) => {
-      const aReq = a.required || a.getAttribute('aria-required') === 'true' ? 0 : 1;
-      const bReq = b.required || b.getAttribute('aria-required') === 'true' ? 0 : 1;
-      return aReq - bReq;
-    });
 
     for (const el of textInputs) {
       const type = (el.type || 'text').toLowerCase();
-      const key  = getKey(el);
-      const lbl  = getLabel(el);
-      const plh  = (el.placeholder || '').trim();
-      let val    = null;
-
-      if (type === 'time') {
-        val = D.resolveText(key, lbl, plh, 'time');
-      } else if (type === 'datetime-local') {
-        const c = norm(`${key} ${lbl}`);
-        const d = /birth|dob/.test(c) ? D.pastDate(22, 42) : D.futureDate(0, 180);
-        val = `${d}T${D.pick([D.startTime, D.endTime])}`;
-      } else if (type === 'month') {
-        const d = new Date(Date.now() + D.rn(1, 180) * 86400000);
-        val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-      } else if (type === 'week') {
-        const d   = new Date(Date.now() + D.rn(1, 90) * 86400000);
-        const jan = new Date(d.getFullYear(), 0, 1);
-        const wk  = Math.ceil(((d - jan) / 86400000 + jan.getDay() + 1) / 7);
-        val = `${d.getFullYear()}-W${String(wk).padStart(2,'0')}`;
-      } else if (type === 'number') {
-        const mn = el.min !== '' ? Number(el.min) : 1;
-        const mx = el.max !== '' ? Number(el.max) : 100;
-        val = D.resolveText(key, lbl, plh, 'number') ?? D.rn(mn, mx);
-      } else if (type === 'email') {
-        val = D.resolveText(key, lbl, plh, 'email');
-      } else if (type === 'tel') {
-        val = D.resolveText(key, lbl, plh, 'tel');
-      } else {
-        // Detect custom date pickers: type="text" with placeholder like DD-MM-YYYY, MM/DD/YYYY, YYYY-MM-DD
-        const up = plh.toUpperCase();
-        const isDatePlh = /^[DMY]{1,4}[-\/\.][DMY]{1,2}[-\/\.][DMY]{2,4}$/.test(up);
-        if (isDatePlh) {
-          const sep  = up.includes('/') ? '/' : up.includes('.') ? '.' : '-';
-          const c2   = norm(`${key} ${lbl}`);
-          const raw  = /birth|dob|birthday/.test(c2) ? D.pastDate(22, 42)
-                     : /join|start|from|begin/.test(c2) ? D.futureDate(1, 90)
-                     : /confirm|end|expir|to/.test(c2)  ? D.futureDate(90, 365)
-                     : D.futureDate(0, 180);
-          const [yr, mo, dy] = raw.split('-');
-          val = up.startsWith('Y') ? `${yr}${sep}${mo}${sep}${dy}`
-              : up.startsWith('D') ? `${dy}${sep}${mo}${sep}${yr}`
-              :                      `${mo}${sep}${dy}${sep}${yr}`;
-        } else {
-          val = D.resolveText(key, lbl, plh, type);
-        }
-      }
-
-      if (val != null) {
-        try {
-          el.focus({ preventScroll: true });
-          setVal(el, String(val));
-          glow(el);
-          filledEls.add(el);
-          filledCount++;
-        } catch (_) {}
-      }
+      fields.push({
+        id: getOrAssignId(el),
+        type: type === 'textarea' ? 'textarea' : type,
+        label: getLabel(el),
+        placeholder: el.placeholder || '',
+        name: getKey(el),
+        min: el.min !== '' ? el.min : undefined,
+        max: el.max !== '' ? el.max : undefined,
+        required: el.required || el.getAttribute('aria-required') === 'true'
+      });
     }
 
-    // ── Phase 2: Native <select> ─────────────────────────────────────────────
-    // Works in plain HTML, Bootstrap, Tailwind, SSR forms — any framework.
+    // 2. Native Selects
     scope.querySelectorAll('select:not([disabled])').forEach(el => {
       if (filledEls.has(el) || !isVisible(el)) return;
-      const opts = Array.from(el.options).filter(o => o.value && !o.disabled);
-      if (!opts.length) return;
+      const opts = Array.from(el.options)
+        .filter(o => o.value && !o.disabled)
+        .map(o => ({ text: o.text, value: o.value }));
 
-      const key   = getKey(el);
-      const lbl   = getLabel(el);
-      const fakeOpts = opts.map(o => ({ text: o.text, value: o.value }));
-      const smart = D.resolveSelect(key, lbl, fakeOpts);
-      const chosen = smart
-        ? opts.find(o => o.value === smart.value || o.text === smart.text) ?? D.pick(opts)
-        : D.pick(opts);
-
-      try {
-        setVal(el, chosen.value);
-        glow(el, true);
-        filledEls.add(el);
-        filledCount++;
-      } catch (_) {}
+      fields.push({
+        id: getOrAssignId(el),
+        type: 'select',
+        label: getLabel(el),
+        name: getKey(el),
+        options: opts,
+        required: el.required || el.getAttribute('aria-required') === 'true'
+      });
     });
 
-    // ── Phase 3: Date inputs ─────────────────────────────────────────────────
-    // Uses isInDom (not isVisible) because custom date picker components often
-    // render a hidden backing input[type="date"] with zero dimensions — it must
-    // still be filled via setVal so React state updates correctly.
+    // 3. Date Inputs
     scope.querySelectorAll('input[type="date"]:not([disabled]):not([readonly])').forEach(el => {
       if (filledEls.has(el) || !isInDom(el)) return;
-      const c = norm(`${getKey(el)} ${getLabel(el)}`);
-      let date;
-      if (/birth|dob|birthday/.test(c))    date = D.pastDate(22, 42);
-      else if (/join|start|from|begin/.test(c)) date = D.futureDate(1, 90);
-      else if (/confirm|end|expir|to/.test(c))  date = D.futureDate(90, 365);
-      else                                       date = D.futureDate(0, 180);
-      try {
-        el.focus({ preventScroll: true });
-        setVal(el, date);
-        glow(el, true);
-        filledEls.add(el);
-        filledCount++;
-      } catch (_) {}
+      fields.push({
+        id: getOrAssignId(el),
+        type: 'date',
+        label: getLabel(el),
+        name: getKey(el),
+        required: el.required || el.getAttribute('aria-required') === 'true'
+      });
     });
 
-    // ── Phase 4: Radio groups ────────────────────────────────────────────────
+    // 4. Radio groups
     const radioGroups = new Map();
     scope.querySelectorAll('input[type="radio"]:not([disabled])').forEach(el => {
       if (!isVisible(el)) return;
-      const groupKey =
-        el.name ||
-        el.closest('[role="radiogroup"]')?.id ||
-        el.closest('fieldset')?.id ||
-        String(Math.round(el.getBoundingClientRect().top));
+      const groupKey = el.name || el.closest('[role="radiogroup"]')?.id || el.closest('fieldset')?.id || String(Math.round(el.getBoundingClientRect().top));
       if (!radioGroups.has(groupKey)) radioGroups.set(groupKey, []);
       radioGroups.get(groupKey).push(el);
     });
-    radioGroups.forEach(radios => {
+
+    radioGroups.forEach((radios, groupKey) => {
       if (radios.some(r => filledEls.has(r))) return;
-      const chosen = D.pick(radios);
-      try {
-        const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
-        if (desc?.set) desc.set.call(chosen, true); else chosen.checked = true;
-        chosen.dispatchEvent(new Event('change', { bubbles: true }));
-        chosen.dispatchEvent(new Event('click',  { bubbles: true }));
-        radios.forEach(r => filledEls.add(r));
-      } catch (_) {}
+      const first = radios[0];
+      const opts = radios.map(r => ({ text: getLabel(r) || r.value || getKey(r), value: r.value || r.id }));
+      const mapping = radios.map(r => ({ elId: getOrAssignId(r), value: r.value || r.id }));
+
+      fields.push({
+        id: getOrAssignId(first),
+        type: 'radio-group',
+        label: getLabel(first.closest('[role="radiogroup"]') || first.closest('fieldset') || first),
+        name: groupKey,
+        options: opts,
+        radioIdMap: mapping
+      });
     });
 
-    // ── Phase 5: Checkboxes ──────────────────────────────────────────────────
+    // 5. Checkboxes
     scope.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(el => {
       if (filledEls.has(el) || !isVisible(el)) return;
-      const shouldCheck = Math.random() < 0.6;
-      if (el.checked !== shouldCheck) {
-        try {
-          const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
-          if (desc?.set) desc.set.call(el, shouldCheck); else el.checked = shouldCheck;
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          el.dispatchEvent(new Event('click',  { bubbles: true }));
-        } catch (_) {}
-      }
-      filledEls.add(el);
+      fields.push({
+        id: getOrAssignId(el),
+        type: 'checkbox',
+        label: getLabel(el),
+        name: getKey(el),
+        required: el.required || el.getAttribute('aria-required') === 'true'
+      });
     });
 
-    // ── Phase 6: Custom toggles — [role="switch"] / [role="checkbox"] ────────
-    // Covers: Shadcn Switch, Radix Switch, Headless UI Switch, custom toggles
+    // 6. Custom toggles
     scope.querySelectorAll('[role="switch"]:not([disabled]),[role="checkbox"]:not(input):not([disabled])').forEach(el => {
       if (filledEls.has(el) || !isVisible(el)) return;
-      const isOn  = el.getAttribute('aria-checked') === 'true' || el.dataset.state === 'checked';
-      const turnOn = Math.random() < 0.6;
-      if (isOn !== turnOn) tap(el);
-      filledEls.add(el);
+      fields.push({
+        id: getOrAssignId(el),
+        type: 'toggle',
+        label: getLabel(el),
+        name: getKey(el)
+      });
     });
 
-    // ── Phase 7: Custom dropdowns (Shadcn, MUI, Ant Design, Headless UI) ─────
-    // Selector covers both aria-haspopup="menu" (Radix/Shadcn) and "listbox" (MUI/Ant)
+    // 7. Custom Dropdowns
     const DROPDOWN_SEL = 'button[aria-haspopup="menu"]:not([disabled]),button[aria-haspopup="listbox"]:not([disabled]),[role="combobox"]:not([disabled])';
-
-    // Identify which triggers belong to array-field patterns (handled in Phase 8)
     const arrayTriggerSet = new Set();
     scope.querySelectorAll(DROPDOWN_SEL).forEach(trig => {
       const addBtn = Array.from(trig.parentElement?.parentElement?.children ?? []).find(c =>
@@ -613,173 +466,369 @@
       .filter(b => !arrayTriggerSet.has(b) && !filledEls.has(b) && isVisible(b));
 
     for (const trig of standaloneDropdowns) {
-      const lbl = getLabel(trig);
-      await fillDropdown(trig, lbl, flat => D.pick(flat));
-      glow(trig, true);
-      filledEls.add(trig);
-      filledCount++;
-    }
-
-    // ── Phase 8: Array-field — select mode ───────────────────────────────────
-    const arraySelect = [];
-    scope.querySelectorAll(DROPDOWN_SEL).forEach(trig => {
-      if (!arrayTriggerSet.has(trig) || filledEls.has(trig) || !isVisible(trig)) return;
-      const addBtn = Array.from(trig.parentElement?.parentElement?.children ?? []).find(c =>
-        c.tagName === 'BUTTON' && c.type === 'button' && !c.getAttribute('aria-haspopup')
-      );
-      if (addBtn) arraySelect.push({ trig, addBtn });
-    });
-
-    for (const { trig, addBtn } of arraySelect) {
-      for (let i = 0; i < 2; i++) {
-        if (!fillViaFiber(trig, flat => flat[0])) {
-          await silentSelectFallback(trig, items => items[0] ?? null);
-        }
-        if (!getOverlayItems().length) break;
-        await sleep(120);
-        tap(addBtn);
-        await sleep(100);
-      }
-      filledEls.add(trig);
-      filledEls.add(addBtn);
-    }
-
-    // ── Cascade pass: fill selects that were disabled and became enabled ─────
-    // Pattern: Country select fills → State becomes enabled → State fills →
-    // City becomes enabled → City fills, etc.
-    // Runs up to 5 times (handles deep chains), stops early if nothing new found.
-    for (let pass = 0; pass < 5; pass++) {
-      await sleep(350); // wait for React state to propagate + re-render
-      let gained = 0;
-
-      // Native selects that just became enabled
-      scope.querySelectorAll('select:not([disabled])').forEach(el => {
-        if (filledEls.has(el) || !isVisible(el)) return;
-        const opts = Array.from(el.options).filter(o => o.value && !o.disabled);
-        if (!opts.length) return;
-        const key = getKey(el), lbl = getLabel(el);
-        const smart = D.resolveSelect(key, lbl, opts.map(o => ({ text: o.text, value: o.value })));
-        const chosen = smart
-          ? opts.find(o => o.value === smart.value || o.text === smart.text) ?? D.pick(opts)
-          : D.pick(opts);
-        try { setVal(el, chosen.value); glow(el, true); filledEls.add(el); filledCount++; gained++; } catch (_) {}
+      const opts = getFiberOptions(trig);
+      fields.push({
+        id: getOrAssignId(trig),
+        type: 'custom-dropdown',
+        label: getLabel(trig),
+        name: getKey(trig),
+        options: opts
       });
+    }
 
-      // Custom dropdowns that just became enabled
-      const freshDropdowns = Array.from(scope.querySelectorAll(DROPDOWN_SEL))
-        .filter(b => !filledEls.has(b) && isVisible(b));
-      for (const trig of freshDropdowns) {
-        await fillDropdown(trig, getLabel(trig), flat => D.pick(flat));
-        glow(trig, true);
-        filledEls.add(trig);
+    return fields;
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Indian Client-side Smart Data Generator (Loads from modular window.COPILOTX_DATA)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const generateLocalData = field => {
+    const data = window.COPILOTX_DATA;
+    if (!data) return "Active";
+
+    const l = field.label || '';
+    const n = field.name || '';
+    const p = field.placeholder || '';
+    const t = field.type || 'text';
+
+    if (t === 'select' || t === 'custom-dropdown') {
+      const opts = field.options || [];
+      const resolved = data.resolveSelect(n, l, opts);
+      if (resolved) return resolved.value ?? resolved;
+      if (opts.length > 0) return opts[Math.floor(Math.random() * opts.length)].value;
+      return "Active";
+    }
+
+    if (t === 'date') {
+      const isPast = /birth|dob|dateofbirth/i.test(`${n} ${l} ${p}`);
+      return isPast ? data.pastDate(20, 50) : data.futureDate(1, 90);
+    }
+
+    if (t === 'number') {
+      const min = field.min !== undefined ? Number(field.min) : 1;
+      const max = field.max !== undefined ? Number(field.max) : 100;
+      return String(data.rn(min, max));
+    }
+
+    // Resolve using data.js rules
+    const resolved = data.resolveText(n, l, p, t);
+    if (resolved !== null && resolved !== undefined) return resolved;
+
+    // Fallback default
+    return "Active";
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  fillFormWithData — fills target elements with supplied/calculated values
+  // ═══════════════════════════════════════════════════════════════════════════
+  const fillFormWithData = async (scope, fields, values, mode = 'AI') => {
+    const allInputs = Array.from(scope.querySelectorAll(
+      'input:not([type="file"]):not([type="hidden"]):not([type="password"]):not([disabled]):not([readonly]),' +
+      'textarea:not([disabled]), select:not([disabled]), [role="switch"]:not([disabled]),' +
+      '[role="checkbox"]:not(input):not([disabled]), button[aria-haspopup="menu"]:not([disabled]),' +
+      'button[aria-haspopup="listbox"]:not([disabled]), [role="combobox"]:not([disabled])'
+    ));
+
+    for (const f of fields) {
+      let val = values[f.id];
+
+      // If AI mode and AI failed to return value, fallback to normal local generator
+      if ((val === undefined || val === null || val === '') && mode === 'AI') {
+        val = generateLocalData(f);
+      } else if (mode === 'NORMAL') {
+        val = generateLocalData(f);
+      }
+
+      if (val === undefined || val === null) continue;
+
+      // Resilient DOM selection with double fallback matching
+      let el = scope.querySelector(`[data-copilotx-id="${f.id}"]`);
+      if (!el) {
+        el = allInputs.find(item => {
+          if (shouldSkip(item)) return false;
+          const key = getKey(item);
+          const lbl = getLabel(item);
+          return (f.name && key && norm(key) === norm(f.name)) ||
+                 (f.label && lbl && norm(lbl) === norm(f.label)) ||
+                 (f.placeholder && item.placeholder && norm(item.placeholder) === norm(f.placeholder));
+        });
+      }
+
+      if (!el || filledEls.has(el)) continue;
+
+      try {
+        if (f.type === 'select') {
+          const chosen = Array.from(el.options).find(o => norm(o.value) === norm(val) || norm(o.text) === norm(val)) || el.options[0];
+          setVal(el, chosen.value);
+          glow(el, true);
+        } else if (f.type === 'checkbox') {
+          const shouldCheck = val === true || val === 'true';
+          if (el.checked !== shouldCheck) {
+            const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
+            if (desc?.set) desc.set.call(el, shouldCheck); else el.checked = shouldCheck;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            el.dispatchEvent(new Event('click',  { bubbles: true }));
+          }
+        } else if (f.type === 'toggle') {
+          const shouldBeOn = val === true || val === 'true';
+          const isOn = el.getAttribute('aria-checked') === 'true' || el.dataset.state === 'checked';
+          if (isOn !== shouldBeOn) tap(el);
+        } else if (f.type === 'radio-group') {
+          const groupKey = f.name;
+          const radios = allInputs.filter(r => r.type === 'radio' && (r.name === groupKey || r.closest('[role="radiogroup"]')?.id === groupKey || r.closest('fieldset')?.id === groupKey));
+          const targetRadio = radios.find(r => norm(r.value) === norm(val) || norm(r.id) === norm(val) || norm(getLabel(r)) === norm(val));
+          if (targetRadio) {
+            const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
+            if (desc?.set) desc.set.call(targetRadio, true); else targetRadio.checked = true;
+            targetRadio.dispatchEvent(new Event('change', { bubbles: true }));
+            targetRadio.dispatchEvent(new Event('click',  { bubbles: true }));
+            radios.forEach(r => filledEls.add(r));
+          }
+        } else if (f.type === 'custom-dropdown') {
+          const fiberFilled = fillViaFiber(el, flat => {
+            return flat.find(o => norm(o.label ?? String(o.value ?? o)) === norm(val) || norm(o.value ?? o) === norm(val)) ?? flat[0];
+          });
+          if (!fiberFilled) {
+            await silentSelectFallback(el, items => {
+              if (!items.length) return null;
+              return items.find(i => norm(i.textContent.trim()) === norm(val) || norm(i.getAttribute('data-value')) === norm(val)) ?? items[0];
+            });
+          }
+          glow(el, true);
+        } else {
+          el.focus({ preventScroll: true });
+          setVal(el, String(val));
+          glow(el, f.type === 'date');
+        }
+
+        filledEls.add(el);
         filledCount++;
-        gained++;
+      } catch (e) {
+        console.warn(`[CopilotX] Failed to fill field:`, e);
       }
-
-      // Text/number inputs that just became enabled (e.g. "Other" free-text field)
-      Array.from(scope.querySelectorAll(
-        'input:not([type="date"]):not([type="checkbox"]):not([type="radio"])' +
-        ':not([type="file"]):not([type="hidden"]):not([type="password"])' +
-        ':not([disabled]):not([readonly]),textarea:not([disabled])'
-      )).filter(el => !shouldSkip(el) && !filledEls.has(el) && isVisible(el) && !el.value.trim())
-      .forEach(el => {
-        const type = (el.type || 'text').toLowerCase();
-        const key = getKey(el), lbl = getLabel(el), plh = (el.placeholder || '').trim();
-        const val = type === 'number'
-          ? D.resolveText(key, lbl, plh, 'number') ?? D.rn(el.min !== '' ? Number(el.min) : 1, el.max !== '' ? Number(el.max) : 100)
-          : D.resolveText(key, lbl, plh, type);
-        if (val != null) {
-          try { el.focus({ preventScroll: true }); setVal(el, String(val)); glow(el); filledEls.add(el); filledCount++; gained++; } catch (_) {}
-        }
-      });
-
-      if (gained === 0) break; // nothing newly enabled — cascade is complete
     }
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
-  //  Main
+  //  UI Mount: Scoped Floating Obsidian Draggable Card
   // ═══════════════════════════════════════════════════════════════════════════
-  try {
-    // ── Scope detection ──────────────────────────────────────────────────────
-    // Prefer focused dialog/sheet over full page — avoids filling hidden forms
-    const scope =
-      document.querySelector('[data-slot="sheet-content"]') ||
-      document.querySelector('[role="dialog"]')             ||
-      document.querySelector('[role="alertdialog"]')        ||
-      document.querySelector('main form')                   ||
-      document.querySelector('main')                        ||
-      document.querySelector('form')                        ||
-      document.body;
+  const mountPopup = async () => {
+    const root = document.createElement('div');
+    root.id = 'copilotx-panel-root';
+    root.style.position = 'fixed';
+    root.style.top = '40px';
+    root.style.right = '40px';
+    root.style.zIndex = '2147483647';
+    document.body.appendChild(root);
 
-    // ── Form reset — clear existing data before filling ─────────────────────
-    resetScope(scope);
-    await sleep(200); // let React state propagate after reset
+    const shadow = root.attachShadow({ mode: 'open' });
 
-    // ── Tab orchestration ────────────────────────────────────────────────────
-    // Fills the active tab, then each inactive tab in sequence, then returns
-    // to the originally active tab. This handles multi-step / wizard forms.
-    const activeTabs = Array.from(scope.querySelectorAll('[role="tab"][aria-selected="true"]:not([disabled])'));
-    const otherTabs  = Array.from(scope.querySelectorAll('[role="tab"]:not([aria-selected="true"]):not([disabled])'));
-    const allTabs    = [...activeTabs, ...otherTabs];
+    // Load glassmorphic styles from modular popup.css
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = chrome.runtime.getURL('popup.css');
+    shadow.appendChild(link);
 
-    if (allTabs.length > 1) {
-      for (const tab of allTabs) {
-        tap(tab);
-        await sleep(TAB_WAIT_MS);
-        await fillScope(scope);
-        // Brief pause: lets the glow be visible on this tab before we switch.
-        // Without this, the next tap() fires before glow has rendered (async paint).
-        await sleep(120);
-      }
-      // Return to originally active tab
-      if (activeTabs[0]) { tap(activeTabs[0]); await sleep(200); }
-    } else {
-      await fillScope(scope);
-    }
+    const container = document.createElement('div');
+    container.className = 'copilotx-floating';
 
-    // ── Verify pass ──────────────────────────────────────────────────────────
-    // React state updates are async — wait then fill anything still empty
-    await sleep(VERIFY_MS);
-
-    Array.from(scope.querySelectorAll(
-      'input:not([type="date"]):not([type="checkbox"]):not([type="radio"])' +
-      ':not([type="file"]):not([type="hidden"]):not([type="password"])' +
-      ':not([disabled]):not([readonly]),textarea:not([disabled])'
-    ))
-    .filter(el => !shouldSkip(el) && isVisible(el) && !el.value.trim())
-    .forEach(el => {
-      const type = (el.type || 'text').toLowerCase();
-      const key  = getKey(el), lbl = getLabel(el), plh = (el.placeholder || '').trim();
-      let val = null;
-      if (type === 'time')           val = D.resolveText(key, lbl, plh, 'time');
-      else if (type === 'datetime-local') {
-        const d = D.futureDate(0, 180);
-        val = `${d}T${D.pick([D.startTime, D.endTime])}`;
-      }
-      else if (type === 'number')    { const mn = el.min!==''?Number(el.min):1, mx=el.max!==''?Number(el.max):100; val = D.resolveText(key,lbl,plh,'number') ?? D.rn(mn,mx); }
-      else if (type === 'email')     val = D.resolveText(key, lbl, plh, 'email');
-      else if (type === 'tel')       val = D.resolveText(key, lbl, plh, 'tel');
-      else                           val = D.resolveText(key, lbl, plh, type);
-      if (val != null) {
-        try { el.focus({ preventScroll: true }); setVal(el, String(val)); glow(el); filledCount++; } catch (_) {}
-      }
+    // Crucial: Stop click event bleeding into host webpage
+    ['mousedown', 'mouseup', 'click', 'pointerdown', 'pointerup', 'keydown', 'keyup', 'keypress'].forEach(evtType => {
+      container.addEventListener(evtType, e => {
+        e.stopPropagation();
+      });
     });
 
-    scope.querySelectorAll('input[type="date"]:not([disabled]):not([readonly])').forEach(el => {
-      if (!isInDom(el) || el.value) return;
-      const c = norm(`${getKey(el)} ${getLabel(el)}`);
-      const d = /birth|dob/.test(c) ? D.pastDate(22,42)
-              : /join|start|from/.test(c) ? D.futureDate(1,90)
-              : /confirm|end|expir/.test(c) ? D.futureDate(90,365)
-              : D.futureDate(0,180);
-      try { el.focus({preventScroll:true}); setVal(el, d); glow(el, true); filledCount++; } catch (_) {}
+    // Load separate HTML structure dynamically
+    const htmlUrl = chrome.runtime.getURL('popup.html');
+    const htmlRes = await fetch(htmlUrl);
+    const htmlContent = await htmlRes.text();
+    container.innerHTML = htmlContent;
+
+    shadow.appendChild(container);
+
+    // Resolve extension logo URL dynamically
+    shadow.getElementById('crx-logo-img').src = chrome.runtime.getURL('icons/icon.png');
+
+    // ── Drag & Drop Handlers (Pointer Capture & Viewport Clamping) ──────────
+    const handle = shadow.getElementById('crx-drag-handle');
+    let isDragging = false;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    handle.addEventListener('pointerdown', e => {
+      isDragging = true;
+      offsetX = e.clientX - root.offsetLeft;
+      offsetY = e.clientY - root.offsetTop;
+      handle.setPointerCapture(e.pointerId);
+      e.stopPropagation();
+      e.preventDefault();
     });
 
-    showToast(filledCount);
-    try { chrome.runtime.sendMessage({ type: 'COPILOTX_DONE', count: filledCount }); } catch (_) {}
+    handle.addEventListener('pointermove', e => {
+      if (!isDragging) return;
+      const rect = root.getBoundingClientRect();
+      let newLeft = e.clientX - offsetX;
+      let newTop = e.clientY - offsetY;
 
-  } finally {
-    window.__copilotxRunning = false;
-  }
+      // Keep within viewport boundaries
+      const maxLeft = window.innerWidth - rect.width;
+      const maxTop = window.innerHeight - rect.height;
+
+      if (newLeft < 0) newLeft = 0;
+      if (newLeft > maxLeft) newLeft = maxLeft;
+      if (newTop < 0) newTop = 0;
+      if (newTop > maxTop) newTop = maxTop;
+
+      root.style.left = `${newLeft}px`;
+      root.style.top = `${newTop}px`;
+      root.style.right = 'auto';
+      e.stopPropagation();
+    });
+
+    const stopDragging = e => {
+      if (isDragging) {
+        isDragging = false;
+        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+    };
+
+    handle.addEventListener('pointerup', stopDragging);
+    handle.addEventListener('pointercancel', stopDragging);
+
+    // ── Close button ────────────────────────────────────────────────────────
+    shadow.getElementById('crx-close-btn').addEventListener('click', e => {
+      root.remove();
+      e.stopPropagation();
+    });
+
+    // ── Action Buttons ──────────────────────────────────────────────────────
+    const btnAI     = shadow.getElementById('crx-btn-ai');
+    const btnNormal = shadow.getElementById('crx-btn-normal');
+    const status    = shadow.getElementById('crx-status-text');
+
+    const disableRows = () => {
+      btnAI.style.pointerEvents = 'none';
+      btnAI.style.opacity = '0.5';
+      btnNormal.style.pointerEvents = 'none';
+      btnNormal.style.opacity = '0.5';
+    };
+    const enableRows = () => {
+      btnAI.style.pointerEvents = '';
+      btnAI.style.opacity = '';
+      btnNormal.style.pointerEvents = '';
+      btnNormal.style.opacity = '';
+    };
+
+    const executeFillFlow = async (mode) => {
+      disableRows();
+      filledCount = 0;
+      filledEls.clear();
+
+      try {
+        const scope =
+          document.querySelector('[data-slot="sheet-content"]') ||
+          document.querySelector('[role="dialog"]')             ||
+          document.querySelector('[role="alertdialog"]')        ||
+          document.querySelector('main form')                   ||
+          document.querySelector('main')                        ||
+          document.querySelector('form')                        ||
+          document.body;
+
+        status.className = 'crx-status crx-status-running';
+        status.innerHTML = `<span class="crx-spinner"></span> Cleansed form...`;
+        resetScope(scope);
+        await sleep(300);
+
+        const activeTabs = Array.from(scope.querySelectorAll('[role="tab"][aria-selected="true"]:not([disabled])'));
+        const otherTabs  = Array.from(scope.querySelectorAll('[role="tab"]:not([aria-selected="true"]):not([disabled])'));
+        const allTabs    = [...activeTabs, ...otherTabs];
+
+        if (mode === 'AI') {
+          status.className = 'crx-status crx-status-running';
+          status.innerHTML = `<span class="crx-spinner"></span> Scanning inputs...`;
+          if (allTabs.length > 1) {
+            for (const tab of allTabs) {
+              tap(tab);
+              await sleep(TAB_WAIT_MS);
+              status.className = 'crx-status crx-status-running';
+              status.innerHTML = `<span class="crx-spinner"></span> AI Generating...`;
+              const fields = scanScope(scope);
+              if (fields.length > 0) {
+                const res = await new Promise(resolve => {
+                  chrome.runtime.sendMessage({ type: 'FILL_WITH_AI', fields }, resolve);
+                });
+                if (res?.error) throw new Error(res.error);
+                await fillFormWithData(scope, fields, res?.values || {}, 'AI');
+              }
+              await sleep(150);
+            }
+            if (activeTabs[0]) { tap(activeTabs[0]); await sleep(200); }
+          } else {
+            status.className = 'crx-status crx-status-running';
+            status.innerHTML = `<span class="crx-spinner"></span> AI Generating...`;
+            const fields = scanScope(scope);
+            if (fields.length > 0) {
+              const res = await new Promise(resolve => {
+                chrome.runtime.sendMessage({ type: 'FILL_WITH_AI', fields }, resolve);
+              });
+              if (res?.error) throw new Error(res.error);
+              await fillFormWithData(scope, fields, res?.values || {}, 'AI');
+            }
+          }
+          status.className = 'crx-status crx-status-success';
+          status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} fields filled`;
+        } else {
+          status.className = 'crx-status crx-status-running';
+          status.innerHTML = `<span class="crx-spinner"></span> Quick Generating...`;
+          if (allTabs.length > 1) {
+            for (const tab of allTabs) {
+              tap(tab);
+              await sleep(TAB_WAIT_MS);
+              const fields = scanScope(scope);
+              if (fields.length > 0) {
+                await fillFormWithData(scope, fields, {}, 'NORMAL');
+              }
+              await sleep(150);
+            }
+            if (activeTabs[0]) { tap(activeTabs[0]); await sleep(200); }
+          } else {
+            const fields = scanScope(scope);
+            if (fields.length > 0) {
+              await fillFormWithData(scope, fields, {}, 'NORMAL');
+            }
+          }
+          status.className = 'crx-status crx-status-success';
+          status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} fields filled`;
+        }
+
+        setTimeout(() => {
+          if (status.innerHTML.includes('filled')) {
+            status.innerHTML = '';
+            status.className = 'crx-status';
+          }
+        }, 3000);
+
+        try { chrome.runtime.sendMessage({ type: 'COPILOTX_DONE', count: filledCount }); } catch (_) {}
+
+      } catch (err) {
+        console.error('[CopilotX]', err);
+        status.className = 'crx-status crx-status-error';
+        status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>${err.message || 'Something went wrong'}`;
+      } finally {
+        enableRows();
+      }
+    };
+
+    btnAI.addEventListener('click', e => {
+      e.stopPropagation();
+      executeFillFlow('AI');
+    });
+    btnNormal.addEventListener('click', e => {
+      e.stopPropagation();
+      executeFillFlow('NORMAL');
+    });
+  };
+
+  await mountPopup();
 })();

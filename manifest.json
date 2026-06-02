@@ -1,24 +1,24 @@
 {
   "manifest_version": 3,
   "name": "CopilotX",
-  "description": "Instantly fill any form with realistic Indian data",
-  "version": "1.0.0",
+  "description": "AI-powered form filler with realistic Indian data",
+  "version": "2.0.0",
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-    },
-    "default_title": "CopilotX – Fill Form"
+    "default_icon": "icons/icon.png",
+    "default_title": "CopilotX – AI Fill Form"
   },
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
   "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  }
+    "128": "icons/icon.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.css", "popup.html", "icons/icon.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
