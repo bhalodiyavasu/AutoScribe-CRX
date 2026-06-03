@@ -308,6 +308,35 @@ window.AUTOSCRIBE_DATA = (() => {
     return null;
   }
 
+  // ── Krisper Specific Static Data ──────────────────────────────────────────
+  const KRISPER_SERVICE_NAMES = [
+    'Haircut & Styling', 'Beard Grooming', 'Shave & Trim', 'Hair Spa', 'Facial & Clean-up',
+    'Hair Coloring', 'Head Massage', 'Pedicure', 'Manicure', 'Face Bleach',
+    'De-Tan Pack', 'Keratin Treatment', 'Hair Straightening'
+  ];
+
+  const KRISPER_SHOP_NAMES = [
+    'Krisper Premium Salon', 'Scissors & Spades', 'The Barber Station',
+    'Royal Grooming Lounge', 'Glitz & Glamour Studio'
+  ];
+
+  const KRISPER_OFFER_NAMES = [
+    'Festive Discount', 'Weekend Pamper Deal', 'Monsoon Hair Care Special',
+    'First Time User Discount', 'Mid-week Special Offer', 'Krisper Birthday Treat'
+  ];
+
+  const KRISPER_DESCRIPTION_TEMPLATES = [
+    'Premium quality grooming and styling service customized for you.',
+    'Experience the best styling with our expert professionals.',
+    'Complete hair spa treatment using premium organic products.',
+    'Includes deep cleansing, scrub, massage, and hydrating pack.'
+  ];
+
+  const KRISPER_OPTION_BADGES = [
+    'Wash & Blowdry', 'Hot Towel Treatment', 'Premium Oil Massage',
+    'Hydrating Gel Mask', 'Argan Oil Serum Apply', 'Beard Waxing Styling'
+  ];
+
   return {
     resolveText,
     resolveSelect,
@@ -322,5 +351,12 @@ window.AUTOSCRIBE_DATA = (() => {
     endTime,
     bloodGroups: BLOOD_GROUPS,
     states:      STATES,
+    firstNames:  FIRST,
+    lastNames:   LAST,
+    krisperServices: KRISPER_SERVICE_NAMES,
+    krisperShops: KRISPER_SHOP_NAMES,
+    krisperOffers: KRISPER_OFFER_NAMES,
+    krisperDescriptions: KRISPER_DESCRIPTION_TEMPLATES,
+    krisperOptions: KRISPER_OPTION_BADGES,
   };
 })();

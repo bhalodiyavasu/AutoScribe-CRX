@@ -15,6 +15,9 @@
   const GLOW_MS      = 1000;
   const TAB_WAIT_MS  = 500;
 
+  // ── State ──────────────────────────────────────────────────────────────────
+  let errorCount = 0;
+
   // ── Utilities ─────────────────────────────────────────────────────────────
   const sleep  = ms => new Promise(r => setTimeout(r, ms));
   const norm   = s  => String(s).toLowerCase().replace(/[-_\s[\]./*:]/g,'');
@@ -65,17 +68,17 @@
 
   const getKey = el => (el.name || el.id || el.getAttribute('data-name') || '').trim();
 
-  // ── Visibility check ──────────────────────────────────────────────────────
   const isVisible = el => {
     let n = el;
     while (n && n !== document.body) {
       const s = getComputedStyle(n);
       if (s.display === 'none' || s.visibility === 'hidden') return false;
+      if (n.getAttribute('data-state') === 'inactive') return false;
+      if (n.getAttribute('aria-hidden') === 'true') return false;
       n = n.parentElement;
     }
     const r = el.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) return true; // Allow elements in active animations
-    return r.width > 0 || r.height > 0;
+    return r.width > 0 && r.height > 0;
   };
 
   const isInDom = el => {
@@ -83,6 +86,8 @@
     let n = el;
     while (n && n !== document.body) {
       if (getComputedStyle(n).display === 'none') return false;
+      if (n.getAttribute('data-state') === 'inactive') return false;
+      if (n.getAttribute('aria-hidden') === 'true') return false;
       n = n.parentElement;
     }
     return true;
@@ -90,8 +95,21 @@
 
   const shouldSkip = el => {
     if (el.disabled || el.readOnly) return true;
+    if (el.getAttribute('tabindex') === '-1' || el.getAttribute('aria-hidden') === 'true') return true;
+    
     const t = (el.type || '').toLowerCase();
     if (['hidden','submit','button','file','password','image','reset'].includes(t)) return true;
+    
+    // Skip duplicate hidden inputs inside Radix UI checkboxes/radios
+    try {
+      const style = getComputedStyle(el);
+      if (style.opacity === '0' || style.pointerEvents === 'none') return true;
+    } catch (_) {}
+    
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.width <= 1) return true;
+    if (r.height > 0 && r.height <= 1) return true;
+
     const k = (el.name || el.id || el.placeholder || '').toLowerCase();
     return k.includes('search') || k.includes('filter') || (el.maxLength > 0 && el.maxLength <= 1);
   };
@@ -133,7 +151,7 @@
   };
 
   // ── Framework-agnostic value setter ───────────────────────────────────────
-  const setVal = (el, val, skipBlur = false) => {
+  const setVal = (el, val, skipBlur = true) => {
     const proto =
       el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype :
       el.tagName === 'SELECT'   ? HTMLSelectElement.prototype   :
@@ -304,6 +322,25 @@
   let filledCount = 0;
   const filledEls = new Set();
   let elIdCounter = 0;
+  let currentStatusElement = null;
+  let currentFillMode = 'NORMAL';
+  let isFilling = false;
+
+  const updateFillStatus = (mode) => {
+    if (!currentStatusElement) return;
+    const isKrisper = window.KRISPER_DATA && window.KRISPER_DATA.isKrisper();
+    const formName = isKrisper ? 'Krisper Form' : 'Form';
+    
+    if (filledCount > 0) {
+      currentStatusElement.innerHTML = `<span class="crx-spinner"></span> Filling ${formName}... (${filledCount})`;
+    } else {
+      if (mode === 'AI') {
+        currentStatusElement.innerHTML = `<span class="crx-spinner"></span> Analyzing Inputs & Fetching AI...`;
+      } else {
+        currentStatusElement.innerHTML = `<span class="crx-spinner"></span> Generating Local Data...`;
+      }
+    }
+  };
 
   const getOrAssignId = el => {
     let id = el.getAttribute('data-autoscribe-id');
@@ -497,6 +534,10 @@
   //  Indian Client-side Smart Data Generator (Loads from modular window.AUTOSCRIBE_DATA)
   // ═══════════════════════════════════════════════════════════════════════════
   const generateLocalData = field => {
+    if (window.KRISPER_DATA && window.KRISPER_DATA.isKrisper()) {
+      const val = window.KRISPER_DATA.resolveField(field);
+      if (val !== null && val !== undefined) return val;
+    }
     const data = window.AUTOSCRIBE_DATA;
     if (!data) return null;
 
@@ -553,10 +594,8 @@
       if (!document.getElementById('autoscribe-panel-root')) return;
       let val = values[f.id];
 
-      // If AI mode and AI failed to return value, fallback to normal local generator
-      if ((val === undefined || val === null || val === '') && mode === 'AI') {
-        val = generateLocalData(f);
-        if (val === null) val = "Active";
+      if (mode === 'AI') {
+        if (val === undefined || val === null) continue;
       } else if (mode === 'NORMAL') {
         val = generateLocalData(f);
         if (val === null) {
@@ -564,8 +603,6 @@
           continue;
         }
       }
-
-      if (val === undefined || val === null) continue;
 
       // Resilient DOM selection with double fallback matching
       let el = scope.querySelector(`[data-autoscribe-id="${f.id}"]`);
@@ -629,34 +666,35 @@
 
         filledEls.add(el);
         filledCount++;
+        updateFillStatus(currentFillMode);
       } catch (e) {
         console.warn(`[AutoScribe] Failed to fill field:`, e);
       }
     }
 
     if (mode === 'NORMAL' && unresolvedFields.length > 0) {
-      if (!document.getElementById('autoscribe-panel-root')) return;
-      const statusText = document.getElementById('autoscribe-panel-root')?.shadowRoot?.getElementById('crx-status-text');
-      if (statusText) {
-        statusText.className = 'crx-status crx-status-running';
-        statusText.innerHTML = `<span class="crx-spinner"></span> Refining ${unresolvedFields.length} field${unresolvedFields.length > 1 ? 's' : ''} with AI...`;
-      }
-
-      try {
-        const res = await new Promise(resolve => {
-          chrome.runtime.sendMessage({ type: 'FILL_WITH_AI', fields: unresolvedFields }, resolve);
-        });
-        if (!document.getElementById('autoscribe-panel-root')) return;
-        if (res?.error) throw new Error(res.error);
-        if (res?.values) {
-          await fillFormWithData(scope, unresolvedFields, res.values, 'AI');
+      // Use local static defaults to avoid API call latencies in Quick Fill mode
+      const fallbacks = {};
+      unresolvedFields.forEach(uf => {
+        let val = null;
+        if (uf.type === 'number') {
+          val = '1';
+        } else if (uf.type === 'date') {
+          const data = window.AUTOSCRIBE_DATA;
+          val = data ? data.futureDate(1, 90) : '2026-06-03';
+        } else if (uf.type === 'datetime-local') {
+          const data = window.AUTOSCRIBE_DATA;
+          val = data ? `${data.futureDate(1, 10)}T12:00` : '2026-06-03T12:00';
+        } else if (uf.type === 'email') {
+          val = 'default@example.com';
+        } else if (uf.type === 'tel') {
+          val = '9876543210';
+        } else {
+          val = 'Active';
         }
-      } catch (err) {
-        console.warn('[AutoScribe] AI fallback failed, using defaults:', err);
-        const fallbacks = {};
-        unresolvedFields.forEach(uf => { fallbacks[uf.id] = "Active"; });
-        await fillFormWithData(scope, unresolvedFields, fallbacks, 'AI');
-      }
+        fallbacks[uf.id] = val;
+      });
+      await fillFormWithData(scope, unresolvedFields, fallbacks, 'AI');
     }
   };
 
@@ -768,6 +806,7 @@
     const btnAI     = shadow.getElementById('crx-btn-ai');
     const btnNormal = shadow.getElementById('crx-btn-normal');
     const status    = shadow.getElementById('crx-status-text');
+    currentStatusElement = status;
 
     const disableRows = () => {
       btnAI.style.pointerEvents = 'none';
@@ -782,10 +821,54 @@
       btnNormal.style.opacity = '';
     };
 
+    let aiFailed = false;
+
+    const fillWithAIStream = async (scopeToFill, fieldsToFill) => {
+      if (fieldsToFill.length === 0) return;
+      if (aiFailed) {
+        throw new Error('AI Streaming Disabled Due to Previous Failure.');
+      }
+      return new Promise((resolve, reject) => {
+        const port = chrome.runtime.connect({ name: 'autoscribe-fill' });
+        port.postMessage({ type: 'FILL_WITH_AI', fields: fieldsToFill });
+        
+        const activePromises = [];
+        
+        port.onMessage.addListener((msg) => {
+          if (!document.getElementById('autoscribe-panel-root')) {
+            port.disconnect();
+            resolve();
+            return;
+          }
+          
+          if (msg.type === 'CHUNK') {
+            const p = fillFormWithData(scopeToFill, fieldsToFill, msg.values, 'AI');
+            activePromises.push(p);
+          } else if (msg.type === 'DONE') {
+            port.disconnect();
+            Promise.all(activePromises).then(() => resolve()).catch(reject);
+          } else if (msg.type === 'ERROR') {
+            aiFailed = true;
+            port.disconnect();
+            reject(new Error(msg.error));
+          }
+        });
+        
+        port.onDisconnect.addListener(() => {
+          Promise.all(activePromises).then(() => resolve());
+        });
+      });
+    };
+
     const executeFillFlow = async (mode) => {
+      if (isFilling) return;
+      isFilling = true;
       disableRows();
       filledCount = 0;
       filledEls.clear();
+      aiFailed = false;
+      currentFillMode = mode;
+      updateFillStatus(mode);
 
       if (window.AUTOSCRIBE_DATA && typeof window.AUTOSCRIBE_DATA.regenerateIdentity === 'function') {
         window.AUTOSCRIBE_DATA.regenerateIdentity();
@@ -798,18 +881,61 @@
       }
 
       try {
-        const scope =
-          document.querySelector('[data-slot="sheet-content"]') ||
-          document.querySelector('[role="dialog"]')             ||
-          document.querySelector('[role="alertdialog"]')        ||
-          document.querySelector('main form')                   ||
-          document.querySelector('main')                        ||
-          document.querySelector('form')                        ||
-          document.body;
+        const getVisibleScope = () => {
+          const selectors = [
+            '[data-slot="sheet-content"]',
+            '[role="dialog"]',
+            '[role="alertdialog"]',
+            'main form',
+            'main',
+            'form'
+          ];
+          for (const sel of selectors) {
+            const els = Array.from(document.querySelectorAll(sel));
+            const visibleEl = els.find(el => isVisible(el));
+            if (visibleEl) return visibleEl;
+          }
+          return document.body;
+        };
+        const scope = getVisibleScope();
+
+        if (window.KRISPER_DATA && window.KRISPER_DATA.isKrisper()) {
+          if (!document.getElementById('autoscribe-panel-root')) return;
+          status.className = 'crx-status crx-status-running';
+          updateFillStatus(mode);
+          
+          await window.KRISPER_DATA.fillForm({
+            scope,
+            mode,
+            scanScope,
+            fillFormWithData,
+            resetScope,
+            sleep,
+            glow,
+            setVal,
+            tap,
+            getFiberOptions,
+            fillViaFiber,
+            fillWithAIStream
+          });
+          
+          if (!document.getElementById('autoscribe-panel-root')) return;
+          status.className = 'crx-status crx-status-success';
+          status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} Fields Filled`;
+          
+          setTimeout(() => {
+            if (!document.getElementById('autoscribe-panel-root')) return;
+            if (status.innerHTML.toLowerCase().includes('filled')) {
+              status.innerHTML = '';
+              status.className = 'crx-status';
+            }
+          }, 3000);
+          return;
+        }
 
         if (!document.getElementById('autoscribe-panel-root')) return;
         status.className = 'crx-status crx-status-running';
-        status.innerHTML = `<span class="crx-spinner"></span> Cleansed form...`;
+        status.innerHTML = `<span class="crx-spinner"></span> Cleansing Form...`;
         resetScope(scope);
         await sleep(300);
 
@@ -820,7 +946,7 @@
 
         if (mode === 'AI') {
           status.className = 'crx-status crx-status-running';
-          status.innerHTML = `<span class="crx-spinner"></span> Scanning inputs...`;
+          updateFillStatus('AI');
           if (allTabs.length > 1) {
             for (const tab of allTabs) {
               if (!document.getElementById('autoscribe-panel-root')) return;
@@ -828,15 +954,10 @@
               await sleep(TAB_WAIT_MS);
               if (!document.getElementById('autoscribe-panel-root')) return;
               status.className = 'crx-status crx-status-running';
-              status.innerHTML = `<span class="crx-spinner"></span> AI Generating...`;
+              updateFillStatus('AI');
               const fields = scanScope(scope);
               if (fields.length > 0) {
-                const res = await new Promise(resolve => {
-                  chrome.runtime.sendMessage({ type: 'FILL_WITH_AI', fields }, resolve);
-                });
-                if (!document.getElementById('autoscribe-panel-root')) return;
-                if (res?.error) throw new Error(res.error);
-                await fillFormWithData(scope, fields, res?.values || {}, 'AI');
+                await fillWithAIStream(scope, fields);
               }
               await sleep(150);
             }
@@ -845,24 +966,19 @@
           } else {
             if (!document.getElementById('autoscribe-panel-root')) return;
             status.className = 'crx-status crx-status-running';
-            status.innerHTML = `<span class="crx-spinner"></span> AI Generating...`;
+            updateFillStatus('AI');
             const fields = scanScope(scope);
             if (fields.length > 0) {
-              const res = await new Promise(resolve => {
-                chrome.runtime.sendMessage({ type: 'FILL_WITH_AI', fields }, resolve);
-              });
-              if (!document.getElementById('autoscribe-panel-root')) return;
-              if (res?.error) throw new Error(res.error);
-              await fillFormWithData(scope, fields, res?.values || {}, 'AI');
+              await fillWithAIStream(scope, fields);
             }
           }
           if (!document.getElementById('autoscribe-panel-root')) return;
           status.className = 'crx-status crx-status-success';
-          status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} fields filled`;
+          status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} Fields Filled`;
         } else {
           if (!document.getElementById('autoscribe-panel-root')) return;
           status.className = 'crx-status crx-status-running';
-          status.innerHTML = `<span class="crx-spinner"></span> Quick Generating...`;
+          updateFillStatus('NORMAL');
           if (allTabs.length > 1) {
             for (const tab of allTabs) {
               if (!document.getElementById('autoscribe-panel-root')) return;
@@ -888,37 +1004,52 @@
           }
           if (!document.getElementById('autoscribe-panel-root')) return;
           status.className = 'crx-status crx-status-success';
-          status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} fields filled`;
+          status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} Fields Filled`;
         }
 
         if (!document.getElementById('autoscribe-panel-root')) return;
         setTimeout(() => {
           if (!document.getElementById('autoscribe-panel-root')) return;
-          if (status.innerHTML.includes('filled')) {
+          if (status.innerHTML.toLowerCase().includes('filled')) {
             status.innerHTML = '';
             status.className = 'crx-status';
           }
         }, 3000);
 
-
       } catch (err) {
         if (!document.getElementById('autoscribe-panel-root')) return;
         console.error('[AutoScribe]', err);
         status.className = 'crx-status crx-status-error';
-        status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>${err.message || 'Something went wrong'}`;
+        status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>${err.message || 'Something Went Wrong'}`;
+        
+        errorCount++;
+        if (errorCount >= 3) {
+          status.innerHTML = `<span style="color:#ef4444">3 errors reached. Closing...</span>`;
+          setTimeout(() => {
+            document.getElementById('autoscribe-panel-root')?.remove();
+            errorCount = 0;
+          }, 1500);
+        }
       } finally {
         if (document.getElementById('autoscribe-panel-root')) {
           container.classList.remove('crx-loading-ai', 'crx-loading-quick');
-          enableRows();
+          setTimeout(() => {
+            isFilling = false;
+            enableRows();
+          }, 500);
+        } else {
+          isFilling = false;
         }
       }
     };
 
     btnAI.addEventListener('click', e => {
+      e.preventDefault();
       e.stopPropagation();
       executeFillFlow('AI');
     });
     btnNormal.addEventListener('click', e => {
+      e.preventDefault();
       e.stopPropagation();
       executeFillFlow('NORMAL');
     });
