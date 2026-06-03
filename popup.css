@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   CopilotX — Pixel-perfect match of pixel_perfect_v3.html reference
+   AutoScribe — Pixel-perfect match of pixel_perfect_v3.html reference
    ═══════════════════════════════════════════════════════════════════════════ */
 :host {
   all: initial;
@@ -24,19 +24,38 @@
 }
 
 /* ── Card shell ──────────────────────────────────────────────────────────── */
-.copilotx-floating {
+.autoscribe-floating {
+  /* ── Design Tokens & Themes ────────────────────────────────────────────── */
+  --bg-primary: #181818;
+  --bg-secondary: #2c2c2e;
+  --bg-hover: #39393b;
+  --bg-badge: #2e2e2e;
+  
+  --color-ai: #a78bfa;
+  --color-quick: #f59e0b;
+  --color-success: #22c55e;
+  --color-error: #ef4444;
+  --color-running: #a1a1aa;
+  
+  --text-muted: #555555;
+  --text-normal: #7a7a7a;
+  --text-bright: #cccccc;
+  --text-grey: #888888;
+  --border-item: #2a2a2a;
+  --border-width: 2px;
+  
   position: relative;
   width: 260px;
-  background: #181818;
+  background: var(--bg-primary);
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75), 0 2px 8px rgba(0, 0, 0, 0.5);
   user-select: none;
-  border: 2px solid transparent;
+  border: var(--border-width) solid transparent;
 }
 
 /* ::before acts as the rotating gradient background when loading */
-.copilotx-floating::before {
+.autoscribe-floating::before {
   content: '';
   position: absolute;
   top: -50%;
@@ -50,27 +69,27 @@
   transition: opacity 0.3s ease;
 }
 
-.copilotx-floating.crx-loading-ai::before {
-  background: conic-gradient(#a78bfa, transparent 30%, #a78bfa 50%, transparent 80%, #a78bfa);
+.autoscribe-floating.crx-loading-ai::before {
+  background: conic-gradient(var(--color-ai), transparent 30%, var(--color-ai) 50%, transparent 80%, var(--color-ai));
   animation: spin 2s linear infinite;
   opacity: 1;
 }
 
-.copilotx-floating.crx-loading-quick::before {
-  background: conic-gradient(#f59e0b, transparent 30%, #f59e0b 50%, transparent 80%, #f59e0b);
+.autoscribe-floating.crx-loading-quick::before {
+  background: conic-gradient(var(--color-quick), transparent 30%, var(--color-quick) 50%, transparent 80%, var(--color-quick));
   animation: spin 2s linear infinite;
   opacity: 1;
 }
 
-/* ::after covers the center of the card, leaving only the 2px border visible */
-.copilotx-floating::after {
+/* ::after covers the center of the card, leaving only the border visible */
+.autoscribe-floating::after {
   content: '';
   position: absolute;
-  top: 2px;
-  left: 2px;
-  right: 2px;
-  bottom: 2px;
-  background: #181818;
+  top: var(--border-width);
+  left: var(--border-width);
+  right: var(--border-width);
+  bottom: var(--border-width);
+  background: var(--bg-primary);
   border-radius: 12px;
   z-index: 1;
   pointer-events: none;
@@ -101,7 +120,7 @@
 
 .crx-drag-icon {
   width: 16px;
-  fill: #555555;
+  fill: var(--text-muted);
   cursor: grab;
   display: block;
   transition: fill 0.15s;
@@ -111,7 +130,7 @@
 }
 
 .crx-drag-icon:hover {
-  fill: #888888;
+  fill: var(--text-grey);
 }
 
 .crx-drag-icon:active {
@@ -121,7 +140,7 @@
 .crx-bolt-icon {
   width: 16px;
   height: 16px;
-  fill: #cccccc;
+  fill: var(--text-bright);
   display: block;
 }
 
@@ -134,7 +153,7 @@
 .crx-hd-right svg {
   width: 16px;
   height: 16px;
-  stroke: #7a7a7a;
+  stroke: var(--text-normal);
   fill: none;
   stroke-width: 1.7;
   stroke-linecap: round;
@@ -148,7 +167,7 @@
 }
 
 .crx-hd-right svg:hover {
-  stroke: #cccccc;
+  stroke: var(--text-bright);
 }
 
 /* Ensure SVG inner shapes don't intercept pointer events */
@@ -171,14 +190,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 11px 12px;
-  background: #2c2c2e;
+  background: var(--bg-secondary);
   cursor: pointer;
   transition: background 0.15s;
   border-radius: 10px;
-  border-radius: 4px;
 }
-
-.crx-row-item {}
 
 .crx-row-item:first-child {
   border-top-left-radius: 10px;
@@ -191,18 +207,18 @@
 }
 
 .crx-row-item:hover {
-  background: #39393b;
+  background: var(--bg-hover);
 }
 
 .crx-row-item+.crx-row-item {
-  border-top: 1px solid #2a2a2a;
+  border-top: 1px solid var(--border-item);
 }
 
 .crx-row-label {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
   font-size: 13px;
   font-weight: 600;
-  color: #cccccc;
+  color: var(--text-bright);
   white-space: nowrap;
   letter-spacing: -0.01em;
   flex: 1;
@@ -210,8 +226,8 @@
 }
 
 .crx-row-badge {
-  background: #2e2e2e;
-  color: #888888;
+  background: var(--bg-badge);
+  color: var(--text-grey);
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
   font-size: 11px;
   font-weight: 500;
@@ -227,7 +243,7 @@
 .crx-status {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
   font-size: 12px;
-  color: #555555;
+  color: var(--text-muted);
   text-align: center;
   padding: 6px 14px 10px;
   min-height: 30px;
@@ -238,21 +254,21 @@
   display: none;
 }
 .crx-status.crx-status-success {
-  color: #22c55e;
+  color: var(--color-success);
   font-weight: 600;
 }
 .crx-status.crx-status-error {
-  color: #ef4444;
+  color: var(--color-error);
   font-weight: 600;
 }
 .crx-status.crx-status-running {
-  color: #a1a1aa;
+  color: var(--color-running);
 }
 
 .crx-spark-icon {
   width: 14px;
   height: 14px;
-  fill: #a78bfa;
+  fill: var(--color-ai);
   flex-shrink: 0;
   margin-left: 8px;
   display: block;
@@ -261,7 +277,7 @@
 .crx-bolt-fill-icon {
   width: 14px;
   height: 14px;
-  fill: #f59e0b;
+  fill: var(--color-quick);
   flex-shrink: 0;
   margin-left: 8px;
   display: block;
@@ -272,7 +288,7 @@
   width: 13px;
   height: 13px;
   border: 2px solid rgba(255, 255, 255, 0.12);
-  border-top-color: #cccccc;
+  border-top-color: var(--text-bright);
   border-radius: 50%;
   animation: crx-spin 0.7s linear infinite;
   display: inline-block;

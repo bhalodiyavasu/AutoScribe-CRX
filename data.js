@@ -1,8 +1,8 @@
 /**
- * CopilotX — Indian fake data provider
+ * AutoScribe — Indian fake data provider
  * Swap this file with an AI-powered provider in the future without touching content.js
  */
-window.COPILOTX_DATA = (() => {
+window.AUTOSCRIBE_DATA = (() => {
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const rn   = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
   const digs = n => Array.from({ length: n }, () => rn(0, 9)).join('');

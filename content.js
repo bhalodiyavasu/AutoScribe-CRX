@@ -1,8 +1,8 @@
 (async () => {
   // If panel already exists, don't re-mount it, just highlight it
-  if (document.getElementById('copilotx-panel-root')) {
-    const root = document.getElementById('copilotx-panel-root');
-    const panel = root.shadowRoot?.querySelector('.copilotx-floating');
+  if (document.getElementById('autoscribe-panel-root')) {
+    const root = document.getElementById('autoscribe-panel-root');
+    const panel = root.shadowRoot?.querySelector('.autoscribe-floating');
     if (panel) {
       panel.style.transform = 'scale(1.05)';
       setTimeout(() => { panel.style.transform = 'scale(1)'; }, 150);
@@ -293,10 +293,10 @@
   let elIdCounter = 0;
 
   const getOrAssignId = el => {
-    let id = el.getAttribute('data-copilotx-id');
+    let id = el.getAttribute('data-autoscribe-id');
     if (!id) {
       id = `f_${elIdCounter++}`;
-      el.setAttribute('data-copilotx-id', id);
+      el.setAttribute('data-autoscribe-id', id);
     }
     return id;
   };
@@ -481,10 +481,10 @@
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
-  //  Indian Client-side Smart Data Generator (Loads from modular window.COPILOTX_DATA)
+  //  Indian Client-side Smart Data Generator (Loads from modular window.AUTOSCRIBE_DATA)
   // ═══════════════════════════════════════════════════════════════════════════
   const generateLocalData = field => {
-    const data = window.COPILOTX_DATA;
+    const data = window.AUTOSCRIBE_DATA;
     if (!data) return "Active";
 
     const l = field.label || '';
@@ -531,7 +531,7 @@
     ));
 
     for (const f of fields) {
-      if (!document.getElementById('copilotx-panel-root')) return;
+      if (!document.getElementById('autoscribe-panel-root')) return;
       let val = values[f.id];
 
       // If AI mode and AI failed to return value, fallback to normal local generator
@@ -544,7 +544,7 @@
       if (val === undefined || val === null) continue;
 
       // Resilient DOM selection with double fallback matching
-      let el = scope.querySelector(`[data-copilotx-id="${f.id}"]`);
+      let el = scope.querySelector(`[data-autoscribe-id="${f.id}"]`);
       if (!el) {
         el = allInputs.find(item => {
           if (shouldSkip(item)) return false;
@@ -606,7 +606,7 @@
         filledEls.add(el);
         filledCount++;
       } catch (e) {
-        console.warn(`[CopilotX] Failed to fill field:`, e);
+        console.warn(`[AutoScribe] Failed to fill field:`, e);
       }
     }
   };
@@ -616,7 +616,7 @@
   // ═══════════════════════════════════════════════════════════════════════════
   const mountPopup = async () => {
     const root = document.createElement('div');
-    root.id = 'copilotx-panel-root';
+    root.id = 'autoscribe-panel-root';
     root.style.position = 'fixed';
     root.style.top = '40px';
     root.style.right = '40px';
@@ -639,7 +639,7 @@
     shadow.appendChild(link);
 
     const container = document.createElement('div');
-    container.className = 'copilotx-floating';
+    container.className = 'autoscribe-floating';
 
     // Crucial: Stop click event bleeding into host webpage
     ['mousedown', 'mouseup', 'click', 'pointerdown', 'pointerup', 'keydown', 'keyup', 'keypress'].forEach(evtType => {
@@ -754,13 +754,13 @@
           document.querySelector('form')                        ||
           document.body;
 
-        if (!document.getElementById('copilotx-panel-root')) return;
+        if (!document.getElementById('autoscribe-panel-root')) return;
         status.className = 'crx-status crx-status-running';
         status.innerHTML = `<span class="crx-spinner"></span> Cleansed form...`;
         resetScope(scope);
         await sleep(300);
 
-        if (!document.getElementById('copilotx-panel-root')) return;
+        if (!document.getElementById('autoscribe-panel-root')) return;
         const activeTabs = Array.from(scope.querySelectorAll('[role="tab"][aria-selected="true"]:not([disabled])'));
         const otherTabs  = Array.from(scope.querySelectorAll('[role="tab"]:not([aria-selected="true"]):not([disabled])'));
         const allTabs    = [...activeTabs, ...otherTabs];
@@ -770,10 +770,10 @@
           status.innerHTML = `<span class="crx-spinner"></span> Scanning inputs...`;
           if (allTabs.length > 1) {
             for (const tab of allTabs) {
-              if (!document.getElementById('copilotx-panel-root')) return;
+              if (!document.getElementById('autoscribe-panel-root')) return;
               tap(tab);
               await sleep(TAB_WAIT_MS);
-              if (!document.getElementById('copilotx-panel-root')) return;
+              if (!document.getElementById('autoscribe-panel-root')) return;
               status.className = 'crx-status crx-status-running';
               status.innerHTML = `<span class="crx-spinner"></span> AI Generating...`;
               const fields = scanScope(scope);
@@ -781,16 +781,16 @@
                 const res = await new Promise(resolve => {
                   chrome.runtime.sendMessage({ type: 'FILL_WITH_AI', fields }, resolve);
                 });
-                if (!document.getElementById('copilotx-panel-root')) return;
+                if (!document.getElementById('autoscribe-panel-root')) return;
                 if (res?.error) throw new Error(res.error);
                 await fillFormWithData(scope, fields, res?.values || {}, 'AI');
               }
               await sleep(150);
             }
-            if (!document.getElementById('copilotx-panel-root')) return;
+            if (!document.getElementById('autoscribe-panel-root')) return;
             if (activeTabs[0]) { tap(activeTabs[0]); await sleep(200); }
           } else {
-            if (!document.getElementById('copilotx-panel-root')) return;
+            if (!document.getElementById('autoscribe-panel-root')) return;
             status.className = 'crx-status crx-status-running';
             status.innerHTML = `<span class="crx-spinner"></span> AI Generating...`;
             const fields = scanScope(scope);
@@ -798,64 +798,63 @@
               const res = await new Promise(resolve => {
                 chrome.runtime.sendMessage({ type: 'FILL_WITH_AI', fields }, resolve);
               });
-              if (!document.getElementById('copilotx-panel-root')) return;
+              if (!document.getElementById('autoscribe-panel-root')) return;
               if (res?.error) throw new Error(res.error);
               await fillFormWithData(scope, fields, res?.values || {}, 'AI');
             }
           }
-          if (!document.getElementById('copilotx-panel-root')) return;
+          if (!document.getElementById('autoscribe-panel-root')) return;
           status.className = 'crx-status crx-status-success';
           status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} fields filled`;
         } else {
-          if (!document.getElementById('copilotx-panel-root')) return;
+          if (!document.getElementById('autoscribe-panel-root')) return;
           status.className = 'crx-status crx-status-running';
           status.innerHTML = `<span class="crx-spinner"></span> Quick Generating...`;
           if (allTabs.length > 1) {
             for (const tab of allTabs) {
-              if (!document.getElementById('copilotx-panel-root')) return;
+              if (!document.getElementById('autoscribe-panel-root')) return;
               tap(tab);
               await sleep(TAB_WAIT_MS);
-              if (!document.getElementById('copilotx-panel-root')) return;
+              if (!document.getElementById('autoscribe-panel-root')) return;
               const fields = scanScope(scope);
               if (fields.length > 0) {
                 await fillFormWithData(scope, fields, {}, 'NORMAL');
               }
               await sleep(150);
             }
-            if (!document.getElementById('copilotx-panel-root')) return;
+            if (!document.getElementById('autoscribe-panel-root')) return;
             if (activeTabs[0]) { tap(activeTabs[0]); await sleep(200); }
           } else {
-            if (!document.getElementById('copilotx-panel-root')) return;
+            if (!document.getElementById('autoscribe-panel-root')) return;
             await sleep(600);
-            if (!document.getElementById('copilotx-panel-root')) return;
+            if (!document.getElementById('autoscribe-panel-root')) return;
             const fields = scanScope(scope);
             if (fields.length > 0) {
               await fillFormWithData(scope, fields, {}, 'NORMAL');
             }
           }
-          if (!document.getElementById('copilotx-panel-root')) return;
+          if (!document.getElementById('autoscribe-panel-root')) return;
           status.className = 'crx-status crx-status-success';
           status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} fields filled`;
         }
 
-        if (!document.getElementById('copilotx-panel-root')) return;
+        if (!document.getElementById('autoscribe-panel-root')) return;
         setTimeout(() => {
-          if (!document.getElementById('copilotx-panel-root')) return;
+          if (!document.getElementById('autoscribe-panel-root')) return;
           if (status.innerHTML.includes('filled')) {
             status.innerHTML = '';
             status.className = 'crx-status';
           }
         }, 3000);
 
-        try { chrome.runtime.sendMessage({ type: 'COPILOTX_DONE', count: filledCount }); } catch (_) {}
 
       } catch (err) {
-        if (!document.getElementById('copilotx-panel-root')) return;
-        console.error('[CopilotX]', err);
+        if (!document.getElementById('autoscribe-panel-root')) return;
+        console.error('[AutoScribe]', err);
         status.className = 'crx-status crx-status-error';
         status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>${err.message || 'Something went wrong'}`;
       } finally {
-        if (document.getElementById('copilotx-panel-root')) {
+        if (document.getElementById('autoscribe-panel-root')) {
           container.classList.remove('crx-loading-ai', 'crx-loading-quick');
           enableRows();
         }

@@ -11,25 +11,18 @@ const MODELS = [
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab.id) return;
   try {
-    // Inject data.js first, then content.js to make window.COPILOTX_DATA accessible
+    // Inject data.js first, then content.js to make window.AUTOSCRIBE_DATA accessible
     await chrome.scripting.executeScript({ 
       target: { tabId: tab.id }, 
       files: ['data.js', 'content.js'] 
     });
-  } catch (e) { console.error('[CopilotX]', e); }
+  } catch (e) { console.error('[AutoScribe]', e); }
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'FILL_WITH_AI') {
     callAI(msg.fields).then(sendResponse).catch(e => sendResponse({ error: e.message }));
     return true;
-  }
-  if (msg.type === 'COPILOTX_DONE' && sender.tab?.id) {
-    const c = msg.count ?? 0;
-    chrome.action.setBadgeText({ text: c > 0 ? String(c) : '', tabId: sender.tab.id });
-    chrome.action.setBadgeBackgroundColor({ color: '#22c55e', tabId: sender.tab.id });
-    chrome.action.setBadgeTextColor({ color: '#ffffff', tabId: sender.tab.id });
-    if (c > 0) setTimeout(() => chrome.action.setBadgeText({ text: '', tabId: sender.tab.id }).catch(() => {}), 5000);
   }
 });
 
@@ -66,7 +59,7 @@ Example: {"f_0":"Aarav","f_1":"aarav.sharma@gmail.com"}`;
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
         lastError = `API error ${res.status}: ${errText}`;
-        console.warn(`[CopilotX] Model ${model} failed: ${lastError}. Trying next model...`);
+        console.warn(`[AutoScribe] Model ${model} failed: ${lastError}. Trying next model...`);
         continue; // Try next model
       }
 
@@ -91,7 +84,7 @@ Example: {"f_0":"Aarav","f_1":"aarav.sharma@gmail.com"}`;
       }
     } catch (e) {
       lastError = e.message;
-      console.warn(`[CopilotX] Model ${model} fetch failed: ${lastError}. Trying next model...`);
+      console.warn(`[AutoScribe] Model ${model} fetch failed: ${lastError}. Trying next model...`);
     }
   }
 

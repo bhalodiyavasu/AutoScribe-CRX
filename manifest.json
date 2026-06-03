@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "CopilotX",
+  "name": "AutoScribe",
   "description": "AI-powered form filler with realistic Indian data",
   "version": "2.0.0",
   "background": {
@@ -8,7 +8,7 @@
   },
   "action": {
     "default_icon": "icons/icon.png",
-    "default_title": "CopilotX – AI Fill Form"
+    "default_title": "AutoScribe – AI Fill Form"
   },
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
