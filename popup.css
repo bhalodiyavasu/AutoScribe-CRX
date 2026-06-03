@@ -105,6 +105,9 @@
   cursor: grab;
   display: block;
   transition: fill 0.15s;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 10;
 }
 
 .crx-drag-icon:hover {
@@ -139,10 +142,18 @@
   display: block;
   cursor: pointer;
   transition: stroke 0.15s;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 10;
 }
 
 .crx-hd-right svg:hover {
   stroke: #cccccc;
+}
+
+/* Ensure SVG inner shapes don't intercept pointer events */
+.crx-header svg * {
+  pointer-events: none !important;
 }
 
 /* ── Body (inset rounded panel) ──────────────────────────────────────────── */

@@ -120,7 +120,7 @@
   };
 
   // ── Framework-agnostic value setter ───────────────────────────────────────
-  const setVal = (el, val) => {
+  const setVal = (el, val, skipBlur = false) => {
     const proto =
       el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype :
       el.tagName === 'SELECT'   ? HTMLSelectElement.prototype   :
@@ -131,7 +131,8 @@
       if (nativeSet) nativeSet.call(el, val); else el.value = val;
     } catch (_) { return; }
 
-    ['input', 'change', 'blur'].forEach(type =>
+    const events = skipBlur ? ['input', 'change'] : ['input', 'change', 'blur'];
+    events.forEach(type =>
       el.dispatchEvent(new Event(type, { bubbles: true }))
     );
 
@@ -311,12 +312,12 @@
       ':not([disabled]):not([readonly]),' +
       'textarea:not([disabled]):not([readonly])'
     )).filter(el => !shouldSkip(el) && (isVisible(el) || isInDom(el))).forEach(el => {
-      try { setVal(el, ''); } catch (_) {}
+      try { setVal(el, '', true); } catch (_) {}
     });
 
     scope.querySelectorAll('select:not([disabled])').forEach(el => {
       if (!isVisible(el)) return;
-      try { if (el.options.length > 0) setVal(el, el.options[0].value); } catch (_) {}
+      try { if (el.options.length > 0) setVal(el, el.options[0].value, true); } catch (_) {}
     });
 
     scope.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(el => {
@@ -530,6 +531,7 @@
     ));
 
     for (const f of fields) {
+      if (!document.getElementById('copilotx-panel-root')) return;
       let val = values[f.id];
 
       // If AI mode and AI failed to return value, fallback to normal local generator
@@ -621,6 +623,13 @@
     root.style.zIndex = '2147483647';
     document.body.appendChild(root);
 
+    // Stop all event propagation from the shadow host to the main page to prevent bleeding click actions
+    ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'keydown', 'keyup', 'keypress', 'contextmenu', 'dblclick'].forEach(evtType => {
+      root.addEventListener(evtType, e => {
+        e.stopPropagation();
+      });
+    });
+
     const shadow = root.attachShadow({ mode: 'open' });
 
     // Load glassmorphic styles from modular popup.css
@@ -636,6 +645,10 @@
     ['mousedown', 'mouseup', 'click', 'pointerdown', 'pointerup', 'keydown', 'keyup', 'keypress'].forEach(evtType => {
       container.addEventListener(evtType, e => {
         e.stopPropagation();
+        // Prevent default on pointerdown/mousedown to keep focus on the host page inputs and prevent blur validations
+        if (['mousedown', 'pointerdown'].includes(evtType)) {
+          e.preventDefault();
+        }
       });
     });
 
@@ -741,11 +754,13 @@
           document.querySelector('form')                        ||
           document.body;
 
+        if (!document.getElementById('copilotx-panel-root')) return;
         status.className = 'crx-status crx-status-running';
         status.innerHTML = `<span class="crx-spinner"></span> Cleansed form...`;
         resetScope(scope);
         await sleep(300);
 
+        if (!document.getElementById('copilotx-panel-root')) return;
         const activeTabs = Array.from(scope.querySelectorAll('[role="tab"][aria-selected="true"]:not([disabled])'));
         const otherTabs  = Array.from(scope.querySelectorAll('[role="tab"]:not([aria-selected="true"]):not([disabled])'));
         const allTabs    = [...activeTabs, ...otherTabs];
@@ -755,8 +770,10 @@
           status.innerHTML = `<span class="crx-spinner"></span> Scanning inputs...`;
           if (allTabs.length > 1) {
             for (const tab of allTabs) {
+              if (!document.getElementById('copilotx-panel-root')) return;
               tap(tab);
               await sleep(TAB_WAIT_MS);
+              if (!document.getElementById('copilotx-panel-root')) return;
               status.className = 'crx-status crx-status-running';
               status.innerHTML = `<span class="crx-spinner"></span> AI Generating...`;
               const fields = scanScope(scope);
@@ -764,13 +781,16 @@
                 const res = await new Promise(resolve => {
                   chrome.runtime.sendMessage({ type: 'FILL_WITH_AI', fields }, resolve);
                 });
+                if (!document.getElementById('copilotx-panel-root')) return;
                 if (res?.error) throw new Error(res.error);
                 await fillFormWithData(scope, fields, res?.values || {}, 'AI');
               }
               await sleep(150);
             }
+            if (!document.getElementById('copilotx-panel-root')) return;
             if (activeTabs[0]) { tap(activeTabs[0]); await sleep(200); }
           } else {
+            if (!document.getElementById('copilotx-panel-root')) return;
             status.className = 'crx-status crx-status-running';
             status.innerHTML = `<span class="crx-spinner"></span> AI Generating...`;
             const fields = scanScope(scope);
@@ -778,37 +798,49 @@
               const res = await new Promise(resolve => {
                 chrome.runtime.sendMessage({ type: 'FILL_WITH_AI', fields }, resolve);
               });
+              if (!document.getElementById('copilotx-panel-root')) return;
               if (res?.error) throw new Error(res.error);
               await fillFormWithData(scope, fields, res?.values || {}, 'AI');
             }
           }
+          if (!document.getElementById('copilotx-panel-root')) return;
           status.className = 'crx-status crx-status-success';
           status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} fields filled`;
         } else {
+          if (!document.getElementById('copilotx-panel-root')) return;
           status.className = 'crx-status crx-status-running';
           status.innerHTML = `<span class="crx-spinner"></span> Quick Generating...`;
           if (allTabs.length > 1) {
             for (const tab of allTabs) {
+              if (!document.getElementById('copilotx-panel-root')) return;
               tap(tab);
               await sleep(TAB_WAIT_MS);
+              if (!document.getElementById('copilotx-panel-root')) return;
               const fields = scanScope(scope);
               if (fields.length > 0) {
                 await fillFormWithData(scope, fields, {}, 'NORMAL');
               }
               await sleep(150);
             }
+            if (!document.getElementById('copilotx-panel-root')) return;
             if (activeTabs[0]) { tap(activeTabs[0]); await sleep(200); }
           } else {
+            if (!document.getElementById('copilotx-panel-root')) return;
+            await sleep(600);
+            if (!document.getElementById('copilotx-panel-root')) return;
             const fields = scanScope(scope);
             if (fields.length > 0) {
               await fillFormWithData(scope, fields, {}, 'NORMAL');
             }
           }
+          if (!document.getElementById('copilotx-panel-root')) return;
           status.className = 'crx-status crx-status-success';
           status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} fields filled`;
         }
 
+        if (!document.getElementById('copilotx-panel-root')) return;
         setTimeout(() => {
+          if (!document.getElementById('copilotx-panel-root')) return;
           if (status.innerHTML.includes('filled')) {
             status.innerHTML = '';
             status.className = 'crx-status';
@@ -818,12 +850,15 @@
         try { chrome.runtime.sendMessage({ type: 'COPILOTX_DONE', count: filledCount }); } catch (_) {}
 
       } catch (err) {
+        if (!document.getElementById('copilotx-panel-root')) return;
         console.error('[CopilotX]', err);
         status.className = 'crx-status crx-status-error';
         status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>${err.message || 'Something went wrong'}`;
       } finally {
-        container.classList.remove('crx-loading-ai', 'crx-loading-quick');
-        enableRows();
+        if (document.getElementById('copilotx-panel-root')) {
+          container.classList.remove('crx-loading-ai', 'crx-loading-quick');
+          enableRows();
+        }
       }
     };
 

@@ -267,6 +267,12 @@ window.COPILOTX_DATA = (() => {
         // Skip rules that produce non-numeric strings for number inputs —
         // setting a string on input[type="number"] throws a DOMException.
         if (type === 'number' && isNaN(Number(String(val)))) continue;
+        
+        // Skip rules that do not match date/time formats
+        if (type === 'time' && !/^\d{2}:\d{2}(:\d{2})?$/.test(String(val))) continue;
+        if (type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(String(val))) continue;
+        if (type === 'datetime-local' && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(String(val))) continue;
+
         return val;
       }
     }
@@ -274,6 +280,8 @@ window.COPILOTX_DATA = (() => {
     if (type === 'tel')      return phone;
     if (type === 'number')   return null;
     if (type === 'time')     return pick([startTime, endTime]);
+    if (type === 'date')     return futureDate(1, 90);
+    if (type === 'datetime-local') return `${futureDate(1, 10)}T${pick([startTime, endTime])}`;
     if (type === 'textarea') return address;
     if (/name/.test(c))      return fullName;
     if (/code/.test(c))      return digs(6);
