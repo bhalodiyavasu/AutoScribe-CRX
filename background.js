@@ -27,7 +27,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 async function callAI(fields) {
-  const prompt = `You are a realistic Indian form data generator. Generate data for ONE consistent Indian person.
+  const randomSeed = Math.random().toString(36).substring(7);
+  const prompt = `You are a realistic Indian form data generator. Generate a completely RANDOM and UNIQUE set of values for ONE consistent Indian person. (Session Seed: ${randomSeed})
 
 RULES:
 - Indian names, phone "+91 XXXXX XXXXX" (start 6-9), email with gmail.com/yahoo.in/outlook.in
@@ -38,6 +39,7 @@ RULES:
 - "checkbox"/"toggle" → true or false
 - Birth/DOB dates = 20-40 years ago, joining = near future
 - All data must be consistent (same person, city, state)
+- Do NOT generate the same person or values across multiple calls. Make this identity entirely unique.
 
 FIELDS:
 ${JSON.stringify(fields)}

@@ -6,6 +6,25 @@
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* ── Design Tokens & Themes ────────────────────────────────────────────── */
+  --bg-primary: #181818;
+  --bg-secondary: #2c2c2e;
+  --bg-hover: #39393b;
+  --bg-badge: #2e2e2e;
+  
+  --color-ai: #a78bfa;
+  --color-quick: #f59e0b;
+  --color-success: #22c55e;
+  --color-error: #ef4444;
+  --color-running: #a1a1aa;
+  
+  --text-muted: #555555;
+  --text-normal: #7a7a7a;
+  --text-bright: #cccccc;
+  --text-grey: #888888;
+  --border-item: #2a2a2a;
+  --border-width: 2px;
 }
 
 * {
@@ -25,25 +44,6 @@
 
 /* ── Card shell ──────────────────────────────────────────────────────────── */
 .autoscribe-floating {
-  /* ── Design Tokens & Themes ────────────────────────────────────────────── */
-  --bg-primary: #181818;
-  --bg-secondary: #2c2c2e;
-  --bg-hover: #39393b;
-  --bg-badge: #2e2e2e;
-  
-  --color-ai: #a78bfa;
-  --color-quick: #f59e0b;
-  --color-success: #22c55e;
-  --color-error: #ef4444;
-  --color-running: #a1a1aa;
-  
-  --text-muted: #555555;
-  --text-normal: #7a7a7a;
-  --text-bright: #cccccc;
-  --text-grey: #888888;
-  --border-item: #2a2a2a;
-  --border-width: 2px;
-  
   position: relative;
   width: 260px;
   background: var(--bg-primary);
@@ -177,7 +177,7 @@
 
 /* ── Body (inset rounded panel) ──────────────────────────────────────────── */
 .crx-body {
-  margin: 0 8px 8px;
+  margin: 0 6px 6px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -193,7 +193,7 @@
   background: var(--bg-secondary);
   cursor: pointer;
   transition: background 0.15s;
-  border-radius: 10px;
+  border-radius: 4px;
 }
 
 .crx-row-item:first-child {

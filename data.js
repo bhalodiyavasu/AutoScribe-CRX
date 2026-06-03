@@ -166,25 +166,33 @@ window.AUTOSCRIBE_DATA = (() => {
 
   const PINS = ['380001','380006','395001','390001','360001','361001','400001','411001','110001','560001','600001','700001','302001','500001','600017','411005','380015','395003','390007','382007'];
 
-  // ── Session identity (consistent within one fill run) ────────────────────
-  const firstName  = pick(FIRST);
-  const lastName   = pick(LAST);
-  const fullName   = `${firstName} ${lastName}`;
-  const city       = pick(CITIES);
-  const state      = pick(STATES);
-  const pin        = pick(PINS);
-  const address    = `${rn(1, 999)}, ${pick(STREETS)}, ${pick(AREAS)}, ${city} - ${pin}`;
+  // ── Session identity (re-generated on every fill run) ────────────────────
+  let firstName, lastName, fullName, city, state, pin, address;
+  let rawPhone, phone, altRaw, altPhone, email;
+  let startTime, endTime;
 
-  // ── Phone: always +91 prefix with Indian format ───────────────────────────
-  const rawPhone   = pick(['6','7','8','9']) + digs(9);
-  const phone      = `+91 ${rawPhone.slice(0,5)} ${rawPhone.slice(5)}`;
-  const altRaw     = pick(['6','7','8','9']) + digs(9);
-  const altPhone   = `+91 ${altRaw.slice(0,5)} ${altRaw.slice(5)}`;
-  const email      = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${rn(1, 99)}@${pick(EMAIL_DOMAINS)}`;
+  function regenerateIdentity() {
+    firstName  = pick(FIRST);
+    lastName   = pick(LAST);
+    fullName   = `${firstName} ${lastName}`;
+    city       = pick(CITIES);
+    state      = pick(STATES);
+    pin        = pick(PINS);
+    address    = `${rn(1, 999)}, ${pick(STREETS)}, ${pick(AREAS)}, ${city} - ${pin}`;
 
-  const sH = rn(8, 14), eH = rn(sH + 3, Math.min(sH + 10, 23));
-  const startTime  = `${String(sH).padStart(2,'0')}:${pick(['00','30'])}`;
-  const endTime    = `${String(eH).padStart(2,'0')}:${pick(['00','30'])}`;
+    rawPhone   = pick(['6','7','8','9']) + digs(9);
+    phone      = `+91 ${rawPhone.slice(0,5)} ${rawPhone.slice(5)}`;
+    altRaw     = pick(['6','7','8','9']) + digs(9);
+    altPhone   = `+91 ${altRaw.slice(0,5)} ${altRaw.slice(5)}`;
+    email      = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${rn(1, 99)}@${pick(EMAIL_DOMAINS)}`;
+
+    const sH = rn(8, 14), eH = rn(sH + 3, Math.min(sH + 10, 23));
+    startTime  = `${String(sH).padStart(2,'0')}:${pick(['00','30'])}`;
+    endTime    = `${String(eH).padStart(2,'0')}:${pick(['00','30'])}`;
+  }
+
+  // Initialize once on load
+  regenerateIdentity();
 
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const futureDate = (minD = 0, maxD = 365) => fmt(new Date(Date.now() + (minD + Math.random()*(maxD-minD))*86400000));
@@ -303,6 +311,7 @@ window.AUTOSCRIBE_DATA = (() => {
   return {
     resolveText,
     resolveSelect,
+    regenerateIdentity,
     futureDate,
     pastDate,
     pick,

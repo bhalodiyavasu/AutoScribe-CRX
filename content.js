@@ -787,6 +787,10 @@
       filledCount = 0;
       filledEls.clear();
 
+      if (window.AUTOSCRIBE_DATA && typeof window.AUTOSCRIBE_DATA.regenerateIdentity === 'function') {
+        window.AUTOSCRIBE_DATA.regenerateIdentity();
+      }
+
       if (mode === 'AI') {
         container.classList.add('crx-loading-ai');
       } else {
