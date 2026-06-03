@@ -100,9 +100,7 @@ window.AUTOSCRIBE_DATA = (() => {
     'Kerala','Odisha','Haryana','Bihar','Assam','Jharkhand','Uttarakhand','Himachal Pradesh',
   ];
 
-  const NATIONALITIES = [
-    'Indian','Indian','Indian','Indian','Indian',
-  ];
+  const NATIONALITY = 'Indian';
 
   // ── Streets (55+) ─────────────────────────────────────────────────────────
   const STREETS = [
@@ -215,7 +213,7 @@ window.AUTOSCRIBE_DATA = (() => {
     { match: ['postalcode','postal','pincode','zip','pin'], value: () => pin },
     { match: ['city'],                               value: () => city },
     { match: ['state','province'],                   value: () => state },
-    { match: ['nationality'],                        value: () => pick(NATIONALITIES) },
+    { match: ['nationality'],                        value: () => NATIONALITY },
     { match: ['country'],                            value: () => 'India' },
     { match: ['reportingmanager','manager'],         value: () => `${pick(FIRST)} ${pick(LAST)}` },
     { match: ['relation','relationship'],            value: () => pick(['Father','Mother','Spouse','Brother','Sister']) },
@@ -347,8 +345,8 @@ window.AUTOSCRIBE_DATA = (() => {
     rn,
     digs,
     _norm,
-    startTime,
-    endTime,
+    get startTime()  { return startTime; },
+    get endTime()    { return endTime; },
     bloodGroups: BLOOD_GROUPS,
     states:      STATES,
     firstNames:  FIRST,

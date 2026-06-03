@@ -11,7 +11,6 @@
   --bg-primary: #181818;
   --bg-secondary: #2c2c2e;
   --bg-hover: #39393b;
-  --bg-badge: #2e2e2e;
   
   --color-ai: #a78bfa;
   --color-quick: #f59e0b;
@@ -174,7 +173,6 @@
 }
 
 .crx-row-label {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-bright);
@@ -184,23 +182,8 @@
   min-width: 0;
 }
 
-.crx-row-badge {
-  background: var(--bg-badge);
-  color: var(--text-grey);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-  font-size: 11px;
-  font-weight: 500;
-  border-radius: 6px;
-  padding: 3px 9px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  margin-left: 8px;
-  line-height: 1.5;
-}
-
 /* ── Status text ─────────────────────────────────────────────────────────── */
 .crx-status {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
   font-size: 12px;
   color: var(--text-muted);
   text-align: center;
@@ -242,12 +225,6 @@
   to {
     transform: rotate(360deg);
   }
-}
-
-#crx-view-main, #crx-view-settings {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
 }
 
 /* Switch Toggle */

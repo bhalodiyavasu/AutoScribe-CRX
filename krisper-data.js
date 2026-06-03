@@ -2,13 +2,13 @@
  * AutoScribe — Krisper-specific mock data and form-filling orchestration
  */
 window.KRISPER_DATA = (() => {
-  // ── Helper functions for random selection ─────────────────────────────────
+  // ── Reuse helpers from AUTOSCRIBE_DATA ──────────────────────────────────────
+  const d = () => window.AUTOSCRIBE_DATA || {};
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const rn = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
   const digs = n => Array.from({ length: n }, () => rn(0, 9)).join('');
 
-  // ── Dynamic Getters for Static Data (stored in data.js) ───────────────────
-  const getStaticData = () => window.AUTOSCRIBE_DATA || {};
+  const getStaticData = d;
   const getFirstNames = () => getStaticData().firstNames || [];
   const getLastNames = () => getStaticData().lastNames || [];
   const getServices = () => getStaticData().krisperServices || [];
@@ -227,7 +227,6 @@ window.KRISPER_DATA = (() => {
     fillWithAIStream,
     multiTabEnabled
   }) => {
-    let fillError = null;
     regenerateIdentity();
 
     // Helper to run Verify Slots workflow
@@ -354,9 +353,7 @@ window.KRISPER_DATA = (() => {
       }
     }
 
-    if (fillError) {
-      throw fillError;
-    }
+
   };
 
   return {

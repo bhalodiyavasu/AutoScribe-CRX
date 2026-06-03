@@ -68,29 +68,19 @@
 
   const getKey = el => (el.name || el.id || el.getAttribute('data-name') || '').trim();
 
-  const isVisible = el => {
-    let n = el;
-    while (n && n !== document.body) {
-      const s = getComputedStyle(n);
-      if (s.display === 'none' || s.visibility === 'hidden') return false;
-      if (n.getAttribute('data-state') === 'inactive') return false;
-      if (n.getAttribute('aria-hidden') === 'true') return false;
-      n = n.parentElement;
-    }
-    const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0;
-  };
-
-  const isInDom = el => {
+  const isVisible = (el, checkRect = true) => {
     if (!document.contains(el)) return false;
     let n = el;
     while (n && n !== document.body) {
-      if (getComputedStyle(n).display === 'none') return false;
+      const s = getComputedStyle(n);
+      if (s.display === 'none' || (checkRect && s.visibility === 'hidden')) return false;
       if (n.getAttribute('data-state') === 'inactive') return false;
       if (n.getAttribute('aria-hidden') === 'true') return false;
       n = n.parentElement;
     }
-    return true;
+    if (!checkRect) return true;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
   };
 
   const shouldSkip = el => {
@@ -326,6 +316,11 @@
   let currentFillMode = 'NORMAL';
   let isFilling = false;
 
+  // ── Reusable SVG icons for status messages ────────────────────────────────
+  const iconStyle = 'display:inline-block;vertical-align:middle;margin-right:3px';
+  const successIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="${iconStyle}"><path d="M20 6 9 17l-5-5"/></svg>`;
+  const errorIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="${iconStyle}"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`;
+
   const updateFillStatus = (mode) => {
     if (!currentStatusElement) return;
     const isKrisper = window.KRISPER_DATA && window.KRISPER_DATA.isKrisper();
@@ -361,7 +356,7 @@
       ':not([type="image"]):not([type="reset"]):not([type="password"])' +
       ':not([disabled]):not([readonly]),' +
       'textarea:not([disabled]):not([readonly])'
-    )).filter(el => !shouldSkip(el) && (isVisible(el) || isInDom(el))).forEach(el => {
+    )).filter(el => !shouldSkip(el) && (isVisible(el) || isVisible(el, false))).forEach(el => {
       try { setVal(el, '', true); } catch (_) {}
     });
 
@@ -370,26 +365,13 @@
       try { if (el.options.length > 0) setVal(el, el.options[0].value, true); } catch (_) {}
     });
 
-    scope.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(el => {
-      if (!isVisible(el)) return;
-      if (el.checked) {
-        try {
-          const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
-          if (desc?.set) desc.set.call(el, false); else el.checked = false;
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        } catch (_) {}
-      }
-    });
-
-    scope.querySelectorAll('input[type="radio"]:not([disabled])').forEach(el => {
-      if (!isVisible(el)) return;
-      if (el.checked) {
-        try {
-          const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
-          if (desc?.set) desc.set.call(el, false); else el.checked = false;
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        } catch (_) {}
-      }
+    scope.querySelectorAll('input[type="checkbox"]:not([disabled]),input[type="radio"]:not([disabled])').forEach(el => {
+      if (!isVisible(el) || !el.checked) return;
+      try {
+        const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
+        if (desc?.set) desc.set.call(el, false); else el.checked = false;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      } catch (_) {}
     });
 
     scope.querySelectorAll('[role="switch"]:not([disabled]),[role="checkbox"]:not(input):not([disabled])').forEach(el => {
@@ -445,7 +427,7 @@
 
     // 3. Date Inputs
     scope.querySelectorAll('input[type="date"]:not([disabled]):not([readonly])').forEach(el => {
-      if (filledEls.has(el) || !isInDom(el)) return;
+      if (filledEls.has(el) || !isVisible(el, false)) return;
       fields.push({
         id: getOrAssignId(el),
         type: 'date',
@@ -728,15 +710,9 @@
     const container = document.createElement('div');
     container.className = 'autoscribe-floating';
 
-    // Crucial: Stop click event bleeding into host webpage
-    ['mousedown', 'mouseup', 'click', 'pointerdown', 'pointerup', 'keydown', 'keyup', 'keypress'].forEach(evtType => {
-      container.addEventListener(evtType, e => {
-        e.stopPropagation();
-        // Prevent default on pointerdown/mousedown to keep focus on the host page inputs and prevent blur validations
-        if (['mousedown', 'pointerdown'].includes(evtType)) {
-          e.preventDefault();
-        }
-      });
+    // Prevent mousedown/pointerdown defaults to keep focus on the host page inputs
+    ['mousedown', 'pointerdown'].forEach(evtType => {
+      container.addEventListener(evtType, e => e.preventDefault());
     });
 
     // Load separate HTML structure dynamically
@@ -809,9 +785,9 @@
     const providerGemini = shadow.getElementById('crx-provider-gemini');
     const providerOpenRouter = shadow.getElementById('crx-provider-openrouter');
 
-    // Main rows
-    const rowAI = shadow.getElementById('crx-btn-ai');
-    const rowNormal = shadow.getElementById('crx-btn-normal');
+    // Main rows (also used as action buttons)
+    const btnAI = shadow.getElementById('crx-btn-ai');
+    const btnNormal = shadow.getElementById('crx-btn-normal');
     // Settings rows
     const rowMultitab = shadow.getElementById('crx-row-multitab');
     const rowProvider = shadow.getElementById('crx-row-provider');
@@ -823,8 +799,8 @@
       btnBack.style.display = 'block';
       btnSettings.style.display = 'none';
       
-      rowAI.style.display = 'none';
-      rowNormal.style.display = 'none';
+      btnAI.style.display = 'none';
+      btnNormal.style.display = 'none';
       rowMultitab.style.display = 'flex';
       rowProvider.style.display = 'flex';
     });
@@ -836,8 +812,8 @@
       btnBack.style.display = 'none';
       btnSettings.style.display = 'block';
       
-      rowAI.style.display = 'flex';
-      rowNormal.style.display = 'flex';
+      btnAI.style.display = 'flex';
+      btnNormal.style.display = 'flex';
       rowMultitab.style.display = 'none';
       rowProvider.style.display = 'none';
     });
@@ -875,23 +851,17 @@
       chrome.storage.local.set({ aiProvider: 'OPENROUTER' });
     });
 
-    // ── Action Buttons ──────────────────────────────────────────────────────
-    const btnAI     = shadow.getElementById('crx-btn-ai');
-    const btnNormal = shadow.getElementById('crx-btn-normal');
-    const status    = shadow.getElementById('crx-status-text');
+    // ── Status & Row State ──────────────────────────────────────────────────
+    const status = shadow.getElementById('crx-status-text');
     currentStatusElement = status;
 
-    const disableRows = () => {
-      btnAI.style.pointerEvents = 'none';
-      btnAI.style.opacity = '0.5';
-      btnNormal.style.pointerEvents = 'none';
-      btnNormal.style.opacity = '0.5';
-    };
-    const enableRows = () => {
-      btnAI.style.pointerEvents = '';
-      btnAI.style.opacity = '';
-      btnNormal.style.pointerEvents = '';
-      btnNormal.style.opacity = '';
+    const setRowsEnabled = (enabled) => {
+      const val = enabled ? '' : 'none';
+      const op = enabled ? '' : '0.5';
+      btnAI.style.pointerEvents = val;
+      btnAI.style.opacity = op;
+      btnNormal.style.pointerEvents = val;
+      btnNormal.style.opacity = op;
     };
 
     let aiFailed = false;
@@ -936,7 +906,7 @@
     const executeFillFlow = async (mode) => {
       if (isFilling) return;
       isFilling = true;
-      disableRows();
+      setRowsEnabled(false);
       filledCount = 0;
       filledEls.clear();
       aiFailed = false;
@@ -998,7 +968,7 @@
           
           if (!document.getElementById('autoscribe-panel-root')) return;
           status.className = 'crx-status crx-status-success';
-          status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} Fields Filled`;
+          status.innerHTML = `${successIcon}${filledCount} Fields Filled`;
           
           setTimeout(() => {
             if (!document.getElementById('autoscribe-panel-root')) return;
@@ -1021,68 +991,42 @@
         const otherTabs  = Array.from(scope.querySelectorAll('[role="tab"]:not([aria-selected="true"]):not([disabled])'));
         const allTabs    = [...activeTabs, ...otherTabs];
 
-        if (mode === 'AI') {
-          status.className = 'crx-status crx-status-running';
-          updateFillStatus('AI');
-          if (multiTabEnabled && allTabs.length > 1) {
-            for (const tab of allTabs) {
-              if (!document.getElementById('autoscribe-panel-root')) return;
-              tap(tab);
-              await sleep(TAB_WAIT_MS);
-              if (!document.getElementById('autoscribe-panel-root')) return;
-              status.className = 'crx-status crx-status-running';
-              updateFillStatus('AI');
-              const fields = scanScope(scope);
-              if (fields.length > 0) {
-                await fillWithAIStream(scope, fields);
-              }
-              await sleep(150);
-            }
-            if (!document.getElementById('autoscribe-panel-root')) return;
-            if (activeTabs[0]) { tap(activeTabs[0]); await sleep(200); }
+        // Unified fill logic for both AI and NORMAL modes
+        const fillScopeFields = async () => {
+          const fields = scanScope(scope);
+          if (fields.length === 0) return;
+          if (mode === 'AI') {
+            await fillWithAIStream(scope, fields);
           } else {
+            await fillFormWithData(scope, fields, {}, 'NORMAL');
+          }
+        };
+
+        status.className = 'crx-status crx-status-running';
+        updateFillStatus(mode);
+
+        if (multiTabEnabled && allTabs.length > 1) {
+          for (const tab of allTabs) {
+            if (!document.getElementById('autoscribe-panel-root')) return;
+            tap(tab);
+            await sleep(TAB_WAIT_MS);
             if (!document.getElementById('autoscribe-panel-root')) return;
             status.className = 'crx-status crx-status-running';
-            updateFillStatus('AI');
-            const fields = scanScope(scope);
-            if (fields.length > 0) {
-              await fillWithAIStream(scope, fields);
-            }
+            updateFillStatus(mode);
+            await fillScopeFields();
+            await sleep(150);
           }
           if (!document.getElementById('autoscribe-panel-root')) return;
-          status.className = 'crx-status crx-status-success';
-          status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} Fields Filled`;
+          if (activeTabs[0]) { tap(activeTabs[0]); await sleep(200); }
         } else {
           if (!document.getElementById('autoscribe-panel-root')) return;
-          status.className = 'crx-status crx-status-running';
-          updateFillStatus('NORMAL');
-          if (multiTabEnabled && allTabs.length > 1) {
-            for (const tab of allTabs) {
-              if (!document.getElementById('autoscribe-panel-root')) return;
-              tap(tab);
-              await sleep(TAB_WAIT_MS);
-              if (!document.getElementById('autoscribe-panel-root')) return;
-              const fields = scanScope(scope);
-              if (fields.length > 0) {
-                await fillFormWithData(scope, fields, {}, 'NORMAL');
-              }
-              await sleep(150);
-            }
-            if (!document.getElementById('autoscribe-panel-root')) return;
-            if (activeTabs[0]) { tap(activeTabs[0]); await sleep(200); }
-          } else {
-            if (!document.getElementById('autoscribe-panel-root')) return;
-            await sleep(600);
-            if (!document.getElementById('autoscribe-panel-root')) return;
-            const fields = scanScope(scope);
-            if (fields.length > 0) {
-              await fillFormWithData(scope, fields, {}, 'NORMAL');
-            }
-          }
-          if (!document.getElementById('autoscribe-panel-root')) return;
-          status.className = 'crx-status crx-status-success';
-          status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M20 6 9 17l-5-5"/></svg>${filledCount} Fields Filled`;
+          if (mode === 'NORMAL') { await sleep(600); }
+          await fillScopeFields();
         }
+
+        if (!document.getElementById('autoscribe-panel-root')) return;
+        status.className = 'crx-status crx-status-success';
+        status.innerHTML = `${successIcon}${filledCount} Fields Filled`;
 
         if (!document.getElementById('autoscribe-panel-root')) return;
         setTimeout(() => {
@@ -1097,7 +1041,7 @@
         if (!document.getElementById('autoscribe-panel-root')) return;
         console.error('[AutoScribe]', err);
         status.className = 'crx-status crx-status-error';
-        status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>${err.message || 'Something Went Wrong'}`;
+        status.innerHTML = `${errorIcon}${err.message || 'Something Went Wrong'}`;
         
         errorCount++;
         if (errorCount >= 3) {
@@ -1112,7 +1056,7 @@
           container.classList.remove('crx-loading-ai', 'crx-loading-quick');
           setTimeout(() => {
             isFilling = false;
-            enableRows();
+            setRowsEnabled(true);
           }, 500);
         } else {
           isFilling = false;
