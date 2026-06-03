@@ -20,6 +20,19 @@
   const norm   = s  => String(s).toLowerCase().replace(/[-_\s[\]./*:]/g,'');
   const clean  = s  => s.replace(/[*\s]+$/g, '').trim();
 
+  const extractPlaceholderExample = placeholder => {
+    if (!placeholder) return null;
+    const match = placeholder.match(/(?:e\.g\.|eg\.|example\s*:|like)\s*["'«“]?([^"'\r\n»”]+)/i);
+    if (match) {
+      const val = match[1].trim().replace(/[.,;!]+$/, '').trim();
+      const lower = val.toLowerCase();
+      if (/^(yyyy|mm|dd|hh|ss|select|choose|enter|type|your|select\s+option|\-+|\*+)$/.test(lower)) return null;
+      if (lower.startsWith('your ') || lower.startsWith('enter ') || lower.startsWith('type ')) return null;
+      return val;
+    }
+    return null;
+  };
+
   // ── Label resolution ──────────────────────────────────────────────────────
   const getLabel = el => {
     const aria = el.getAttribute('aria-label');
@@ -485,7 +498,7 @@
   // ═══════════════════════════════════════════════════════════════════════════
   const generateLocalData = field => {
     const data = window.AUTOSCRIBE_DATA;
-    if (!data) return "Active";
+    if (!data) return null;
 
     const l = field.label || '';
     const n = field.name || '';
@@ -497,7 +510,7 @@
       const resolved = data.resolveSelect(n, l, opts);
       if (resolved) return resolved.value ?? resolved;
       if (opts.length > 0) return opts[Math.floor(Math.random() * opts.length)].value;
-      return "Active";
+      return null;
     }
 
     if (t === 'date') {
@@ -511,12 +524,16 @@
       return String(data.rn(min, max));
     }
 
-    // Resolve using data.js rules
+    // 1. Resolve using data.js rules
     const resolved = data.resolveText(n, l, p, t);
     if (resolved !== null && resolved !== undefined) return resolved;
 
-    // Fallback default
-    return "Active";
+    // 2. Try extracting example from placeholder
+    const ex = extractPlaceholderExample(p);
+    if (ex) return ex;
+
+    // Fallback default (returns null so NORMAL mode will delegate to AI fallback)
+    return null;
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -530,6 +547,8 @@
       'button[aria-haspopup="listbox"]:not([disabled]), [role="combobox"]:not([disabled])'
     ));
 
+    const unresolvedFields = [];
+
     for (const f of fields) {
       if (!document.getElementById('autoscribe-panel-root')) return;
       let val = values[f.id];
@@ -537,8 +556,13 @@
       // If AI mode and AI failed to return value, fallback to normal local generator
       if ((val === undefined || val === null || val === '') && mode === 'AI') {
         val = generateLocalData(f);
+        if (val === null) val = "Active";
       } else if (mode === 'NORMAL') {
         val = generateLocalData(f);
+        if (val === null) {
+          unresolvedFields.push(f);
+          continue;
+        }
       }
 
       if (val === undefined || val === null) continue;
@@ -607,6 +631,31 @@
         filledCount++;
       } catch (e) {
         console.warn(`[AutoScribe] Failed to fill field:`, e);
+      }
+    }
+
+    if (mode === 'NORMAL' && unresolvedFields.length > 0) {
+      if (!document.getElementById('autoscribe-panel-root')) return;
+      const statusText = document.getElementById('autoscribe-panel-root')?.shadowRoot?.getElementById('crx-status-text');
+      if (statusText) {
+        statusText.className = 'crx-status crx-status-running';
+        statusText.innerHTML = `<span class="crx-spinner"></span> Refining ${unresolvedFields.length} field${unresolvedFields.length > 1 ? 's' : ''} with AI...`;
+      }
+
+      try {
+        const res = await new Promise(resolve => {
+          chrome.runtime.sendMessage({ type: 'FILL_WITH_AI', fields: unresolvedFields }, resolve);
+        });
+        if (!document.getElementById('autoscribe-panel-root')) return;
+        if (res?.error) throw new Error(res.error);
+        if (res?.values) {
+          await fillFormWithData(scope, unresolvedFields, res.values, 'AI');
+        }
+      } catch (err) {
+        console.warn('[AutoScribe] AI fallback failed, using defaults:', err);
+        const fallbacks = {};
+        unresolvedFields.forEach(uf => { fallbacks[uf.id] = "Active"; });
+        await fillFormWithData(scope, unresolvedFields, fallbacks, 'AI');
       }
     }
   };
