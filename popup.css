@@ -14,14 +14,74 @@
   padding: 0;
 }
 
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ── Card shell ──────────────────────────────────────────────────────────── */
 .copilotx-floating {
+  position: relative;
   width: 260px;
   background: #181818;
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75), 0 2px 8px rgba(0, 0, 0, 0.5);
   user-select: none;
+  border: 2px solid transparent;
+}
+
+/* ::before acts as the rotating gradient background when loading */
+.copilotx-floating::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: transparent;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.copilotx-floating.crx-loading-ai::before {
+  background: conic-gradient(#a78bfa, transparent 30%, #a78bfa 50%, transparent 80%, #a78bfa);
+  animation: spin 2s linear infinite;
+  opacity: 1;
+}
+
+.copilotx-floating.crx-loading-quick::before {
+  background: conic-gradient(#f59e0b, transparent 30%, #f59e0b 50%, transparent 80%, #f59e0b);
+  animation: spin 2s linear infinite;
+  opacity: 1;
+}
+
+/* ::after covers the center of the card, leaving only the 2px border visible */
+.copilotx-floating::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  background: #181818;
+  border-radius: 12px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Ensure all content layers are above the border pseudo-elements */
+.crx-header,
+.crx-body,
+.crx-status {
+  position: relative;
+  z-index: 2;
 }
 
 /* ── Header ──────────────────────────────────────────────────────────────── */
@@ -30,7 +90,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 11px 14px 11px 14px;
-  background: #181818;
+  background: transparent;
 }
 
 .crx-hd-left {

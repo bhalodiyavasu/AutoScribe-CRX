@@ -725,6 +725,12 @@
       filledCount = 0;
       filledEls.clear();
 
+      if (mode === 'AI') {
+        container.classList.add('crx-loading-ai');
+      } else {
+        container.classList.add('crx-loading-quick');
+      }
+
       try {
         const scope =
           document.querySelector('[data-slot="sheet-content"]') ||
@@ -816,6 +822,7 @@
         status.className = 'crx-status crx-status-error';
         status.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:3px"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>${err.message || 'Something went wrong'}`;
       } finally {
+        container.classList.remove('crx-loading-ai', 'crx-loading-quick');
         enableRows();
       }
     };
