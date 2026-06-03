@@ -1,5 +1,10 @@
 <div class="crx-header">
   <div class="crx-hd-left">
+    <!-- Back Button (Chevrons Left) -->
+    <svg id="crx-back-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="crx-header-icons crx-back-icon" style="display: none;">
+      <path d="m11 17-5-5 5-5"/>
+      <path d="m18 17-5-5 5-5"/>
+    </svg>
     <!-- Drag handle (6 dots) -->
     <svg id="crx-drag-handle" viewBox="0 0 16 16" class="crx-drag-icon">
       <circle cx="5" cy="3" r="1.2"/>
@@ -13,25 +18,47 @@
     <img id="crx-logo-img" class="crx-bolt-icon" alt="AutoScribe">
   </div>
   <div class="crx-hd-right">
+    <!-- Settings Gear -->
+    <svg id="crx-settings-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="crx-header-icons crx-settings-icon">
+      <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
     <!-- X close -->
-    <svg id="crx-close-btn" viewBox="0 0 16 16">
+    <svg id="crx-close-btn" viewBox="0 0 16 16" class="crx-header-icons crx-close-icon">
       <line x1="4" y1="4" x2="12" y2="12"/>
       <line x1="12" y1="4" x2="4" y2="12"/>
     </svg>
   </div>
 </div>
 <div class="crx-body">
-  <div class="crx-row-item" id="crx-btn-ai">
+  <!-- Main View -->
+  <div class="crx-row-item crx-main-item" id="crx-btn-ai">
     <span class="crx-row-label">AI Smart Fill</span>
     <svg class="crx-spark-icon" viewBox="0 0 16 16">
       <path d="M8 0C8 4.4 4.4 8 0 8C4.4 8 8 11.6 8 16C8 11.6 11.6 8 16 8C11.6 8 8 4.4 8 0Z"/>
     </svg>
   </div>
-  <div class="crx-row-item" id="crx-btn-normal">
+  <div class="crx-row-item crx-main-item" id="crx-btn-normal">
     <span class="crx-row-label">Quick Auto Fill</span>
     <svg class="crx-bolt-fill-icon" viewBox="0 0 16 16">
       <path d="M9.5 1L3 9h4.5L6.5 15L13 7H8.5L9.5 1Z"/>
     </svg>
+  </div>
+  
+  <!-- Settings View -->
+  <div class="crx-row-item crx-settings-item" id="crx-row-multitab" style="display: none;">
+    <span class="crx-row-label">Multi-Tab Fill</span>
+    <label class="crx-switch">
+      <input type="checkbox" id="crx-toggle-multitab">
+      <span class="crx-slider"></span>
+    </label>
+  </div>
+  <div class="crx-row-item crx-settings-item" id="crx-row-provider" style="display: none;">
+    <span class="crx-row-label">AI Provider</span>
+    <div class="crx-segmented-control">
+      <button id="crx-provider-gemini" class="active">Gemini</button>
+      <button id="crx-provider-openrouter">OpenRouter</button>
+    </div>
   </div>
 </div>
 <div class="crx-status" id="crx-status-text"></div>

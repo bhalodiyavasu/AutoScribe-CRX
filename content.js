@@ -802,6 +802,79 @@
       e.stopPropagation();
     });
 
+    // ── Settings View Toggling and Controls ──────────────────────────────────
+    const btnSettings = shadow.getElementById('crx-settings-btn');
+    const btnBack = shadow.getElementById('crx-back-btn');
+    const toggleMultitab = shadow.getElementById('crx-toggle-multitab');
+    const providerGemini = shadow.getElementById('crx-provider-gemini');
+    const providerOpenRouter = shadow.getElementById('crx-provider-openrouter');
+
+    // Main rows
+    const rowAI = shadow.getElementById('crx-btn-ai');
+    const rowNormal = shadow.getElementById('crx-btn-normal');
+    // Settings rows
+    const rowMultitab = shadow.getElementById('crx-row-multitab');
+    const rowProvider = shadow.getElementById('crx-row-provider');
+
+    btnSettings.addEventListener('click', e => {
+      e.stopPropagation();
+      container.classList.add('crx-settings-open');
+      handle.style.display = 'none';
+      btnBack.style.display = 'block';
+      btnSettings.style.display = 'none';
+      
+      rowAI.style.display = 'none';
+      rowNormal.style.display = 'none';
+      rowMultitab.style.display = 'flex';
+      rowProvider.style.display = 'flex';
+    });
+
+    btnBack.addEventListener('click', e => {
+      e.stopPropagation();
+      container.classList.remove('crx-settings-open');
+      handle.style.display = 'block';
+      btnBack.style.display = 'none';
+      btnSettings.style.display = 'block';
+      
+      rowAI.style.display = 'flex';
+      rowNormal.style.display = 'flex';
+      rowMultitab.style.display = 'none';
+      rowProvider.style.display = 'none';
+    });
+
+    // ── Persistent Storage Operations ────────────────────────────────────────
+    chrome.storage.local.get(['multiTabEnabled', 'aiProvider'], res => {
+      const multiTab = res.multiTabEnabled !== false;
+      const provider = res.aiProvider || 'GEMINI';
+
+      toggleMultitab.checked = multiTab;
+      if (provider === 'GEMINI') {
+        providerGemini.classList.add('active');
+        providerOpenRouter.classList.remove('active');
+      } else {
+        providerOpenRouter.classList.add('active');
+        providerGemini.classList.remove('active');
+      }
+    });
+
+    toggleMultitab.addEventListener('change', () => {
+      chrome.storage.local.set({ multiTabEnabled: toggleMultitab.checked });
+    });
+
+    providerGemini.addEventListener('click', e => {
+      e.stopPropagation();
+      providerGemini.classList.add('active');
+      providerOpenRouter.classList.remove('active');
+      chrome.storage.local.set({ aiProvider: 'GEMINI' });
+    });
+
+    providerOpenRouter.addEventListener('click', e => {
+      e.stopPropagation();
+      providerOpenRouter.classList.add('active');
+      providerGemini.classList.remove('active');
+      chrome.storage.local.set({ aiProvider: 'OPENROUTER' });
+    });
+
     // ── Action Buttons ──────────────────────────────────────────────────────
     const btnAI     = shadow.getElementById('crx-btn-ai');
     const btnNormal = shadow.getElementById('crx-btn-normal');
@@ -870,6 +943,9 @@
       currentFillMode = mode;
       updateFillStatus(mode);
 
+      const store = await chrome.storage.local.get('multiTabEnabled');
+      const multiTabEnabled = store.multiTabEnabled !== false;
+
       if (window.AUTOSCRIBE_DATA && typeof window.AUTOSCRIBE_DATA.regenerateIdentity === 'function') {
         window.AUTOSCRIBE_DATA.regenerateIdentity();
       }
@@ -916,7 +992,8 @@
             tap,
             getFiberOptions,
             fillViaFiber,
-            fillWithAIStream
+            fillWithAIStream,
+            multiTabEnabled
           });
           
           if (!document.getElementById('autoscribe-panel-root')) return;
@@ -947,7 +1024,7 @@
         if (mode === 'AI') {
           status.className = 'crx-status crx-status-running';
           updateFillStatus('AI');
-          if (allTabs.length > 1) {
+          if (multiTabEnabled && allTabs.length > 1) {
             for (const tab of allTabs) {
               if (!document.getElementById('autoscribe-panel-root')) return;
               tap(tab);
@@ -979,7 +1056,7 @@
           if (!document.getElementById('autoscribe-panel-root')) return;
           status.className = 'crx-status crx-status-running';
           updateFillStatus('NORMAL');
-          if (allTabs.length > 1) {
+          if (multiTabEnabled && allTabs.length > 1) {
             for (const tab of allTabs) {
               if (!document.getElementById('autoscribe-panel-root')) return;
               tap(tab);

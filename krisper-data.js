@@ -224,7 +224,8 @@ window.KRISPER_DATA = (() => {
     tap,
     getFiberOptions,
     fillViaFiber,
-    fillWithAIStream
+    fillWithAIStream,
+    multiTabEnabled
   }) => {
     let fillError = null;
     regenerateIdentity();
@@ -315,7 +316,7 @@ window.KRISPER_DATA = (() => {
     const otherTabs  = Array.from(scope.querySelectorAll('[role="tab"]:not([aria-selected="true"]):not([disabled])'));
     const allTabs    = [...activeTabs, ...otherTabs];
 
-    if (allTabs.length > 1) {
+    if (multiTabEnabled && allTabs.length > 1) {
       // Switch through tabs to fill all of them
       for (const tab of allTabs) {
         if (!document.getElementById('autoscribe-panel-root')) return;

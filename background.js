@@ -1,7 +1,3 @@
-// Provider Configuration
-// Set to 'GEMINI' or 'OPENROUTER' to switch between providers with zero other changes!
-const PROVIDER = 'GEMINI'; 
-
 // Gemini API Configuration
 const GEMINI_KEYS = [
   'AQ.Ab8RN6ItrJNC4b11nmc4gBU_GK2Ae0u0AYC5nho9NKw4Bc3DqQ', // Default key gemini
@@ -78,14 +74,17 @@ Example: {"f_0":"Aarav","f_1":"aarav.sharma@gmail.com"}`;
 
 // Common helper to fetch from LLM with rotating keys and fallback models/endpoints
 async function fetchLLM(prompt, stream = false) {
-  const keys = PROVIDER === 'GEMINI' ? GEMINI_KEYS : OPENROUTER_KEYS;
+  const store = await chrome.storage.local.get('aiProvider');
+  const provider = store.aiProvider || 'GEMINI';
+
+  const keys = provider === 'GEMINI' ? GEMINI_KEYS : OPENROUTER_KEYS;
   let lastError = null;
 
   for (let k = 0; k < keys.length; k++) {
     const keyIndex = (currentKeyIndex + k) % keys.length;
     const apiKey = keys[keyIndex];
 
-    if (PROVIDER === 'GEMINI') {
+    if (provider === 'GEMINI') {
       const url = stream 
         ? `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${apiKey}`
         : `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
@@ -172,11 +171,14 @@ async function fetchLLM(prompt, stream = false) {
     }
   }
 
-  throw new Error(`All ${PROVIDER} API keys failed. Last error: ${lastError}`);
+  throw new Error(`All ${provider} API keys failed. Last error: ${lastError}`);
 }
 
 async function streamAI(fields, port) {
   try {
+    const store = await chrome.storage.local.get('aiProvider');
+    const provider = store.aiProvider || 'GEMINI';
+
     const prompt = generatePrompt(fields);
     const res = await fetchLLM(prompt, true);
 
@@ -204,7 +206,7 @@ async function streamAI(fields, port) {
             
             // Extract content chunk depending on provider
             let content = '';
-            if (PROVIDER === 'GEMINI') {
+            if (provider === 'GEMINI') {
               content = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
             } else {
               content = parsed.choices?.[0]?.delta?.content || '';
@@ -262,12 +264,15 @@ async function streamAI(fields, port) {
 
 async function callAI(fields) {
   try {
+    const store = await chrome.storage.local.get('aiProvider');
+    const provider = store.aiProvider || 'GEMINI';
+
     const prompt = generatePrompt(fields);
     const res = await fetchLLM(prompt, false);
     const data = await res.json();
     
     let text = '';
-    if (PROVIDER === 'GEMINI') {
+    if (provider === 'GEMINI') {
       text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     } else {
       text = data?.choices?.[0]?.message?.content;

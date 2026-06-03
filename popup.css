@@ -52,6 +52,11 @@
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.75), 0 2px 8px rgba(0, 0, 0, 0.5);
   user-select: none;
   border: var(--border-width) solid transparent;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s;
+}
+
+.autoscribe-floating.crx-settings-open {
+  width: 320px;
 }
 
 /* ::before acts as the rotating gradient background when loading */
@@ -118,56 +123,10 @@
   gap: 8px;
 }
 
-.crx-drag-icon {
-  width: 16px;
-  fill: var(--text-muted);
-  cursor: grab;
-  display: block;
-  transition: fill 0.15s;
-  pointer-events: auto !important;
-  position: relative;
-  z-index: 10;
-}
-
-.crx-drag-icon:hover {
-  fill: var(--text-grey);
-}
-
-.crx-drag-icon:active {
-  cursor: grabbing;
-}
-
-.crx-bolt-icon {
-  width: 16px;
-  height: 16px;
-  fill: var(--text-bright);
-  display: block;
-}
-
 .crx-hd-right {
   display: flex;
   align-items: center;
-  gap: 13px;
-}
-
-.crx-hd-right svg {
-  width: 16px;
-  height: 16px;
-  stroke: var(--text-normal);
-  fill: none;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  display: block;
-  cursor: pointer;
-  transition: stroke 0.15s;
-  pointer-events: auto !important;
-  position: relative;
-  z-index: 10;
-}
-
-.crx-hd-right svg:hover {
-  stroke: var(--text-bright);
+  gap: 9px;
 }
 
 /* Ensure SVG inner shapes don't intercept pointer events */
@@ -265,23 +224,6 @@
   color: var(--color-running);
 }
 
-.crx-spark-icon {
-  width: 14px;
-  height: 14px;
-  fill: var(--color-ai);
-  flex-shrink: 0;
-  margin-left: 8px;
-  display: block;
-}
-
-.crx-bolt-fill-icon {
-  width: 14px;
-  height: 14px;
-  fill: var(--color-quick);
-  flex-shrink: 0;
-  margin-left: 8px;
-  display: block;
-}
 
 /* ── Spinner (used in status messages) ───────────────────────────────────── */
 .crx-spinner {
@@ -300,4 +242,186 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+#crx-view-main, #crx-view-settings {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* Switch Toggle */
+.crx-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  margin-left: 8px;
+}
+.crx-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.crx-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--bg-hover);
+  transition: 0.2s;
+  border-radius: 20px;
+}
+.crx-slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--text-bright);
+  transition: 0.2s;
+  border-radius: 50%;
+}
+.crx-switch input:checked + .crx-slider {
+  background-color: var(--color-success);
+}
+.crx-switch input:checked + .crx-slider:before {
+  transform: translateX(16px);
+  background-color: #ffffff;
+}
+
+/* Segmented Control */
+.crx-segmented-control {
+  display: flex;
+  background: var(--bg-primary);
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid var(--border-item);
+}
+.crx-segmented-control button {
+  background: transparent;
+  border: none;
+  color: var(--text-grey);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-family: inherit;
+}
+.crx-segmented-control button.active {
+  background: var(--bg-hover);
+  color: var(--text-bright);
+}
+.crx-segmented-control button:focus {
+  outline: none;
+}
+
+/* Explicit rounded corners for main items to prevent DOM-sibling displacement bugs */
+#crx-btn-ai {
+  border-top-left-radius: 10px !important;
+  border-top-right-radius: 10px !important;
+}
+#crx-btn-normal {
+  border-bottom-left-radius: 10px !important;
+  border-bottom-right-radius: 10px !important;
+}
+
+/* When settings are open, style the settings items corners */
+.crx-settings-open #crx-row-multitab {
+  border-top-left-radius: 10px !important;
+  border-top-right-radius: 10px !important;
+  border-top: none !important;
+}
+.crx-settings-open #crx-row-provider {
+  border-bottom-left-radius: 10px !important;
+  border-bottom-right-radius: 10px !important;
+  border-top: 1px solid var(--border-item) !important;
+}
+
+/* ── Icons ── */
+
+/* Common class for all header stroke icons */
+.crx-header-icons {
+  stroke: var(--text-normal);
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: block;
+  cursor: pointer;
+  transition: stroke 0.15s;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 10;
+}
+.crx-header-icons:hover {
+  stroke: var(--text-bright);
+}
+
+/* Specific icon width, height, and stroke overrides */
+.crx-back-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+
+.crx-settings-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.crx-close-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Header drag handle icon */
+.crx-drag-icon {
+  width: 16px;
+  height: 16px;
+  fill: var(--text-muted);
+  cursor: grab;
+  display: block;
+  transition: fill 0.15s;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 10;
+}
+.crx-drag-icon:hover {
+  fill: var(--text-grey);
+}
+.crx-drag-icon:active {
+  cursor: grabbing;
+}
+
+/* Logo image icon */
+.crx-bolt-icon {
+  width: 16px;
+  height: 16px;
+  fill: var(--text-bright);
+  display: block;
+}
+
+/* Main action rows fill icons */
+.crx-spark-icon {
+  width: 14px;
+  height: 14px;
+  fill: var(--color-ai);
+  flex-shrink: 0;
+  margin-left: 8px;
+  display: block;
+}
+
+.crx-bolt-fill-icon {
+  width: 14px;
+  height: 14px;
+  fill: var(--color-quick);
+  flex-shrink: 0;
+  margin-left: 8px;
+  display: block;
 }

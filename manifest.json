@@ -10,7 +10,7 @@
     "default_icon": "icons/icon.png",
     "default_title": "AutoScribe – AI Fill Form"
   },
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": ["<all_urls>"],
   "icons": {
     "128": "icons/icon.png"
