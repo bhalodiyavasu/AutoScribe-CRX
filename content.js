@@ -693,8 +693,8 @@
     const root = document.createElement('div');
     root.id = 'autoscribe-panel-root';
     root.style.position = 'fixed';
-    root.style.top = '40px';
-    root.style.right = '40px';
+    root.style.top = '20px';
+    root.style.right = '20px';
     root.style.zIndex = '2147483647';
     document.body.appendChild(root);
 
@@ -732,28 +732,207 @@
     // Resolve extension logo URL dynamically
     shadow.getElementById('crx-logo-img').src = chrome.runtime.getURL('icons/icon.png');
 
-    // Trigger slide-in transition
-    setTimeout(() => {
-      container.classList.add('crx-visible');
-    }, 20);
-
-    // ── Drag & Drop Handlers (Pointer Capture & Viewport Clamping) ──────────
+    // ── State Variables & Snapping / Inactivity Logic ───────────────────────
     const handle = shadow.getElementById('crx-drag-handle');
     let isDragging = false;
     let offsetX = 0;
     let offsetY = 0;
+    let startX = 0;
+    let startY = 0;
+    let hasMoved = false;
+    let inactivityTimeout = null;
 
-    handle.addEventListener('pointerdown', e => {
-      isDragging = true;
-      offsetX = e.clientX - root.offsetLeft;
-      offsetY = e.clientY - root.offsetTop;
-      handle.setPointerCapture(e.pointerId);
-      e.stopPropagation();
-      e.preventDefault();
+    const getTargetWidth = () => {
+      if (container.classList.contains('crx-collapsed')) return 40;
+      if (container.classList.contains('crx-settings-open')) return 320;
+      return 260;
+    };
+
+    const getTargetHeight = () => {
+      if (container.classList.contains('crx-collapsed')) return 40;
+      return 116;
+    };
+
+    const snapToNearestEdge = () => {
+      const rect = root.getBoundingClientRect();
+      const width = getTargetWidth();
+      const height = getTargetHeight();
+      const x = rect.left;
+      const y = rect.top;
+
+      const distLeft = x;
+      const distRight = window.innerWidth - x - width;
+      const distTop = y;
+      const distBottom = window.innerHeight - y - height;
+
+      const minDist = Math.min(distLeft, distRight, distTop, distBottom);
+      const margin = 20;
+
+      let targetLeft = x;
+      let targetTop = y;
+
+      if (minDist === distLeft) {
+        targetLeft = margin;
+      } else if (minDist === distRight) {
+        targetLeft = window.innerWidth - width - margin;
+      } else if (minDist === distTop) {
+        targetTop = margin;
+      } else {
+        targetTop = window.innerHeight - height - margin;
+      }
+
+      const maxLeft = window.innerWidth - width - margin;
+      const maxTop = window.innerHeight - height - margin;
+
+      targetLeft = Math.max(margin, Math.min(targetLeft, maxLeft));
+      targetTop = Math.max(margin, Math.min(targetTop, maxTop));
+
+      root.style.transition = 'left 0.5s cubic-bezier(0.16, 1, 0.3, 1), top 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
+      root.style.left = `${targetLeft}px`;
+      root.style.top = `${targetTop}px`;
+      root.style.right = 'auto';
+
+      setTimeout(() => {
+        root.style.transition = '';
+      }, 500);
+    };
+
+    const snapToTopRight = () => {
+      const width = getTargetWidth();
+      const margin = 20;
+      const targetLeft = window.innerWidth - width - margin;
+      const targetTop = margin;
+
+      root.style.transition = 'left 0.5s cubic-bezier(0.16, 1, 0.3, 1), top 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
+      root.style.left = `${targetLeft}px`;
+      root.style.top = `${targetTop}px`;
+      root.style.right = 'auto';
+
+      setTimeout(() => {
+        root.style.transition = '';
+      }, 500);
+    };
+
+    const collapsePanel = (isAutomatic = false) => {
+      if (container.classList.contains('crx-collapsed')) return;
+
+      container.classList.remove('crx-settings-open');
+
+      const btnBack = shadow.getElementById('crx-back-btn');
+      const btnSettings = shadow.getElementById('crx-settings-btn');
+      const btnAI = shadow.getElementById('crx-btn-ai');
+      const btnNormal = shadow.getElementById('crx-btn-normal');
+      const rowMultitab = shadow.getElementById('crx-row-multitab');
+      const rowProvider = shadow.getElementById('crx-row-provider');
+
+      if (btnBack) btnBack.style.display = 'none';
+      if (btnSettings) btnSettings.style.display = 'block';
+      if (btnAI) btnAI.style.display = 'flex';
+      if (btnNormal) btnNormal.style.display = 'flex';
+      if (rowMultitab) rowMultitab.style.display = 'none';
+      if (rowProvider) rowProvider.style.display = 'none';
+
+      const status = shadow.getElementById('crx-status-text');
+      if (status) {
+        status.innerHTML = '';
+        status.className = 'crx-status';
+      }
+
+      container.classList.add('crx-collapsed');
+
+      if (inactivityTimeout) {
+        clearTimeout(inactivityTimeout);
+        inactivityTimeout = null;
+      }
+
+      if (isAutomatic) {
+        snapToTopRight();
+      } else {
+        snapToNearestEdge();
+      }
+    };
+
+    const startInactivityTimer = () => {
+      if (inactivityTimeout) {
+        clearTimeout(inactivityTimeout);
+      }
+      inactivityTimeout = setTimeout(() => {
+        if (document.getElementById('autoscribe-panel-root')) {
+          collapsePanel(true);
+        }
+      }, 60000);
+    };
+
+    const resetInactivityTimer = () => {
+      if (!container.classList.contains('crx-collapsed')) {
+        startInactivityTimer();
+      }
+    };
+
+    const expandPanel = () => {
+      if (!container.classList.contains('crx-collapsed')) return;
+
+      container.classList.remove('crx-collapsed');
+      startInactivityTimer();
+      snapToNearestEdge();
+    };
+
+    // Trigger slide-in transition and start inactivity timer
+    setTimeout(() => {
+      container.classList.add('crx-visible');
+      startInactivityTimer();
+    }, 20);
+
+    // Reset inactivity timer on click or interaction inside container
+    container.addEventListener('click', () => {
+      resetInactivityTimer();
     });
 
-    handle.addEventListener('pointermove', e => {
+    // Collapse panel if clicking on logo in expanded state
+    shadow.getElementById('crx-logo-img').addEventListener('click', e => {
+      const isCollapsed = container.classList.contains('crx-collapsed');
+      if (!isCollapsed) {
+        e.stopPropagation();
+        collapsePanel(false);
+      }
+    });
+
+    // ── Drag & Drop Handlers (Pointer Capture & Snapping) ───────────────────
+    container.addEventListener('pointerdown', e => {
+      const isCollapsed = container.classList.contains('crx-collapsed');
+
+      // If expanded, only drag using the drag handle
+      if (!isCollapsed && !e.target.closest('#crx-drag-handle')) {
+        return;
+      }
+
+      // Reset transition to ensure drag is instant
+      root.style.transition = '';
+
+      isDragging = true;
+      hasMoved = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      offsetX = e.clientX - root.offsetLeft;
+      offsetY = e.clientY - root.offsetTop;
+
+      const captureTarget = isCollapsed ? container : handle;
+      try { captureTarget.setPointerCapture(e.pointerId); } catch (_) {}
+
+      e.stopPropagation();
+      e.preventDefault();
+      resetInactivityTimer();
+    });
+
+    const handleMove = e => {
       if (!isDragging) return;
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        hasMoved = true;
+      }
+
       const rect = root.getBoundingClientRect();
       let newLeft = e.clientX - offsetX;
       let newTop = e.clientY - offsetY;
@@ -771,28 +950,43 @@
       root.style.top = `${newTop}px`;
       root.style.right = 'auto';
       e.stopPropagation();
-    });
+    };
 
-    const stopDragging = e => {
-      if (isDragging) {
-        isDragging = false;
-        try { handle.releasePointerCapture(e.pointerId); } catch (_) { }
+    const handleUp = e => {
+      if (!isDragging) return;
+      isDragging = false;
+
+      const isCollapsed = container.classList.contains('crx-collapsed');
+      const captureTarget = isCollapsed ? container : handle;
+      try { captureTarget.releasePointerCapture(e.pointerId); } catch (_) {}
+
+      e.stopPropagation();
+
+      if (isCollapsed) {
+        if (!hasMoved) {
+          expandPanel();
+        } else {
+          snapToNearestEdge();
+        }
+      } else {
+        // If expanded, do NOT snap to edge, keep it where it was dragged
       }
     };
 
-    handle.addEventListener('pointerup', stopDragging);
-    handle.addEventListener('pointercancel', stopDragging);
+    container.addEventListener('pointermove', handleMove);
+    container.addEventListener('pointerup', handleUp);
+    container.addEventListener('pointercancel', handleUp);
 
-    // Keep floating card clamped in viewport when window resizes (e.g. sidebar opens)
+    // Keep floating card snapped/clamped in viewport when window resizes
     const handleResize = () => {
-      if (root.style.right === 'auto') {
+      if (container.classList.contains('crx-collapsed')) {
+        snapToNearestEdge();
+      } else {
         const rect = root.getBoundingClientRect();
         const maxLeft = window.innerWidth - rect.width;
         const maxTop = window.innerHeight - rect.height;
-        let newLeft = root.offsetLeft;
-        let newTop = root.offsetTop;
-        if (newLeft > maxLeft) newLeft = Math.max(0, maxLeft);
-        if (newTop > maxTop) newTop = Math.max(0, maxTop);
+        let newLeft = Math.max(0, Math.min(root.offsetLeft, maxLeft));
+        let newTop = Math.max(0, Math.min(root.offsetTop, maxTop));
         root.style.left = `${newLeft}px`;
         root.style.top = `${newTop}px`;
       }
@@ -801,6 +995,10 @@
 
     // ── Close button ────────────────────────────────────────────────────────
     shadow.getElementById('crx-close-btn').addEventListener('click', e => {
+      if (inactivityTimeout) {
+        clearTimeout(inactivityTimeout);
+        inactivityTimeout = null;
+      }
       window.removeEventListener('resize', handleResize);
       container.classList.remove('crx-visible');
       setTimeout(() => {
@@ -810,6 +1008,12 @@
         } catch (_) {}
       }, 400);
       e.stopPropagation();
+    });
+
+    // ── Minimize button ─────────────────────────────────────────────────────
+    shadow.getElementById('crx-minimize-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      collapsePanel(true);
     });
 
     // ── Settings View Toggling and Controls ──────────────────────────────────

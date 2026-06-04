@@ -45,6 +45,7 @@
 .autoscribe-floating {
   position: relative;
   width: 260px;
+  max-height: 130px;
   background: var(--bg-primary);
   border-radius: 14px;
   overflow: hidden;
@@ -53,7 +54,7 @@
   border: var(--border-width) solid transparent;
   transform: translateY(-80px);
   opacity: 0;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .autoscribe-floating.crx-visible {
@@ -364,6 +365,11 @@
   height: 16px;
 }
 
+.crx-minimize-icon {
+  width: 18px;
+  height: 18px;
+}
+
 /* Header drag handle icon */
 .crx-drag-icon {
   width: 16px;
@@ -408,4 +414,64 @@
   flex-shrink: 0;
   margin-left: 8px;
   display: block;
+}
+
+/* ── Collapsed State ── */
+.autoscribe-floating.crx-collapsed {
+  width: 40px !important;
+  height: 40px !important;
+  max-height: 40px !important;
+  border-radius: 12px !important;
+  background: var(--bg-primary) !important;
+  cursor: pointer !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+
+.autoscribe-floating.crx-collapsed:active {
+  cursor: pointer !important;
+}
+
+.autoscribe-floating.crx-collapsed .crx-header {
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+}
+
+.autoscribe-floating.crx-collapsed .crx-hd-left {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+}
+
+.autoscribe-floating.crx-collapsed #crx-logo-img {
+  width: 26px !important;
+  height: 26px !important;
+}
+
+/* Hide everything else in collapsed state */
+.autoscribe-floating.crx-collapsed #crx-drag-handle,
+.autoscribe-floating.crx-collapsed #crx-back-btn,
+.autoscribe-floating.crx-collapsed .crx-hd-right,
+.autoscribe-floating.crx-collapsed .crx-body,
+.autoscribe-floating.crx-collapsed .crx-status {
+  display: none !important;
+}
+
+/* Ensure border rotating gradient is disabled when collapsed */
+.autoscribe-floating.crx-collapsed::before,
+.autoscribe-floating.crx-collapsed::after {
+  display: none !important;
 }
