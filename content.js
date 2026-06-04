@@ -1,20 +1,46 @@
 (async () => {
-  // If panel already exists, don't re-mount it, just highlight it
+  // Register message listener on window once to handle context menu trigger
+  if (!window.autoscribeListenerRegistered) {
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (msg.type === 'PING') {
+        sendResponse({ status: 'ok' });
+        return true;
+      }
+      if (msg.type === 'TRIGGER_FILL') {
+        const root = document.getElementById('autoscribe-panel-root');
+        if (root) {
+          if (typeof root.expandPanel === 'function') root.expandPanel();
+          if (typeof root.executeFillFlow === 'function') {
+            root.executeFillFlow(msg.mode, msg.target);
+          }
+        }
+        sendResponse({ status: 'started' });
+        return true;
+      }
+    });
+    window.autoscribeListenerRegistered = true;
+  }
+
+  // If panel already exists, handle it
   if (document.getElementById('autoscribe-panel-root')) {
     const root = document.getElementById('autoscribe-panel-root');
-    const panel = root.shadowRoot?.querySelector('.autoscribe-floating');
-    if (root.getAttribute('data-has-been-dragged') === 'true' && typeof root.snapToTopRight === 'function') {
-      root.snapToTopRight();
-      if (typeof root.resetDragState === 'function') {
-        root.resetDragState();
-      }
+    if (typeof root.executeFillFlow !== 'function') {
+      root.remove();
     } else {
-      if (panel) {
-        panel.style.transform = 'scale(1.05)';
-        setTimeout(() => { panel.style.transform = 'scale(1)'; }, 150);
+      const panel = root.shadowRoot?.querySelector('.autoscribe-floating');
+      if (root.getAttribute('data-has-been-dragged') === 'true' && typeof root.snapToTopRight === 'function') {
+        root.snapToTopRight();
+        if (typeof root.resetDragState === 'function') {
+          root.resetDragState();
+        }
+      } else {
+        if (panel) {
+          panel.style.transform = 'scale(1.05)';
+          setTimeout(() => { panel.style.transform = 'scale(1)'; }, 150);
+        }
       }
+      return;
     }
-    return;
   }
 
   // ── Constants ──────────────────────────────────────────────────────────────
@@ -24,6 +50,10 @@
 
   // ── State ──────────────────────────────────────────────────────────────────
   let errorCount = 0;
+  let lastRightClickedElement = null;
+  document.addEventListener('contextmenu', e => {
+    lastRightClickedElement = e.composedPath?.()[0] || e.target;
+  }, true);
 
   // ── Utilities ─────────────────────────────────────────────────────────────
   const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -1214,7 +1244,7 @@
       });
     };
 
-    const executeFillFlow = async (mode) => {
+    const executeFillFlow = async (mode, target = 'all') => {
       if (isFilling) return;
       isFilling = true;
       let isFirst = true;
@@ -1324,17 +1354,50 @@
           await window.KRISPER_DATA.fillForm({
             scope,
             mode,
-            scanScope,
+            scanScope: (sc) => {
+              let fields = scanScope(sc);
+              if (target === 'field' && lastRightClickedElement) {
+                const targetId = getOrAssignId(lastRightClickedElement);
+                fields = fields.filter(f => f.id === targetId);
+              }
+              return fields;
+            },
             fillFormWithData,
-            resetScope,
+            resetScope: (sc) => {
+              if (target !== 'field') resetScope(sc);
+            },
             sleep,
             glow,
-            setVal,
-            tap,
+            setVal: (el, val) => {
+              if (target === 'field') {
+                const isTargetElement = (targetEl) => {
+                  if (!lastRightClickedElement) return false;
+                  return targetEl === lastRightClickedElement || 
+                         lastRightClickedElement.contains(targetEl) || 
+                         targetEl.contains(lastRightClickedElement);
+                };
+                if (isTargetElement(el)) setVal(el, val);
+              } else {
+                setVal(el, val);
+              }
+            },
+            tap: (el) => {
+              if (target === 'field') {
+                const isTargetElement = (targetEl) => {
+                  if (!lastRightClickedElement) return false;
+                  return targetEl === lastRightClickedElement || 
+                         lastRightClickedElement.contains(targetEl) || 
+                         targetEl.contains(lastRightClickedElement);
+                };
+                if (isTargetElement(el)) tap(el);
+              } else {
+                tap(el);
+              }
+            },
             getFiberOptions,
             fillViaFiber,
             fillWithAIStream,
-            multiTabEnabled
+            multiTabEnabled: target === 'field' ? false : multiTabEnabled
           });
 
           if (!document.getElementById('autoscribe-panel-root')) return;
@@ -1351,11 +1414,13 @@
           return;
         }
 
-        if (!document.getElementById('autoscribe-panel-root')) return;
-        status.className = 'crx-status crx-status-running';
-        status.innerHTML = `<span class="crx-spinner"></span> Cleansing Form...`;
-        resetScope(scope);
-        await sleep(300);
+        if (target !== 'field') {
+          if (!document.getElementById('autoscribe-panel-root')) return;
+          status.className = 'crx-status crx-status-running';
+          status.innerHTML = `<span class="crx-spinner"></span> Cleansing Form...`;
+          resetScope(scope);
+          await sleep(300);
+        }
 
         if (!document.getElementById('autoscribe-panel-root')) return;
         const activeTabs = Array.from(scope.querySelectorAll('[role="tab"][aria-selected="true"]:not([disabled])'));
@@ -1364,7 +1429,11 @@
 
         // Unified fill logic for both AI and NORMAL modes
         const fillScopeFields = async () => {
-          const fields = scanScope(scope);
+          let fields = scanScope(scope);
+          if (target === 'field' && lastRightClickedElement) {
+            const targetId = getOrAssignId(lastRightClickedElement);
+            fields = fields.filter(f => f.id === targetId);
+          }
           if (fields.length === 0) return;
           if (mode === 'AI') {
             await fillWithAIStream(scope, fields, isFirst);
@@ -1377,7 +1446,7 @@
         status.className = 'crx-status crx-status-running';
         updateFillStatus(mode);
 
-        if (multiTabEnabled && allTabs.length > 1) {
+        if (target !== 'field' && multiTabEnabled && allTabs.length > 1) {
           for (const tab of allTabs) {
             if (!document.getElementById('autoscribe-panel-root')) return;
             tap(tab);
@@ -1392,7 +1461,7 @@
           if (activeTabs[0]) { tap(activeTabs[0]); await sleep(200); }
         } else {
           if (!document.getElementById('autoscribe-panel-root')) return;
-          if (mode === 'NORMAL') { await sleep(600); }
+          if (target !== 'field' && mode === 'NORMAL') { await sleep(600); }
           await fillScopeFields();
         }
 
@@ -1457,6 +1526,9 @@
       executeFillFlow('NORMAL');
     });
 
+    // Expose control functions on root DOM node for top-level message listener accessibility
+    root.executeFillFlow = executeFillFlow;
+    root.expandPanel = expandPanel;
 
   };
 

@@ -13,6 +13,97 @@ chrome.action.onClicked.addListener(async (tab) => {
   } catch (e) { console.error('[AutoScribe]', e); }
 });
 
+// ── Context Menus ────────────────────────────────────────────────────────────
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.removeAll(() => {
+    // Parent Context Menu
+    chrome.contextMenus.create({
+      id: 'autoscribe-parent',
+      title: 'AutoScribe',
+      contexts: ['all']
+    });
+
+    // Submenus
+    chrome.contextMenus.create({
+      id: 'autoscribe-ai-fill-all',
+      parentId: 'autoscribe-parent',
+      title: 'AI Smart Fill (All)',
+      contexts: ['all']
+    });
+    chrome.contextMenus.create({
+      id: 'autoscribe-ai-fill-field',
+      parentId: 'autoscribe-parent',
+      title: 'AI Smart Fill (This Field)',
+      contexts: ['editable']
+    });
+    chrome.contextMenus.create({
+      id: 'autoscribe-quick-fill-all',
+      parentId: 'autoscribe-parent',
+      title: 'Quick Auto Fill (All)',
+      contexts: ['all']
+    });
+    chrome.contextMenus.create({
+      id: 'autoscribe-quick-fill-field',
+      parentId: 'autoscribe-parent',
+      title: 'Quick Auto Fill (This Field)',
+      contexts: ['editable']
+    });
+  });
+});
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (tab.id && info.menuItemId.startsWith('autoscribe-')) {
+    let mode = '';
+    let target = '';
+
+    if (info.menuItemId === 'autoscribe-ai-fill-all') {
+      mode = 'AI';
+      target = 'all';
+    } else if (info.menuItemId === 'autoscribe-ai-fill-field') {
+      mode = 'AI';
+      target = 'field';
+    } else if (info.menuItemId === 'autoscribe-quick-fill-all') {
+      mode = 'NORMAL';
+      target = 'all';
+    } else if (info.menuItemId === 'autoscribe-quick-fill-field') {
+      mode = 'NORMAL';
+      target = 'field';
+    } else {
+      return; // Ignore parent menu clicks
+    }
+
+    const injected = await ensureContentScriptsInjected(tab.id);
+    if (injected) {
+      chrome.tabs.sendMessage(tab.id, { type: 'TRIGGER_FILL', mode, target }).catch(err => {
+        console.error('[AutoScribe] Failed to send message to tab:', err);
+      });
+    }
+  }
+});
+
+async function ensureContentScriptsInjected(tabId) {
+  for (let i = 0; i < 3; i++) {
+    try {
+      await chrome.tabs.sendMessage(tabId, { type: 'PING' });
+      return true;
+    } catch (e) {
+      if (i === 0) {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId },
+            files: ['data.js', 'krisper-data.js', 'content.js']
+          });
+        } catch (err) {
+          console.error('[AutoScribe] Script injection failed:', err);
+          return false;
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 150));
+    }
+  }
+  return false;
+}
+
 // ── Streaming connection handler ─────────────────────────────────────────────
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'autoscribe-fill') return;
