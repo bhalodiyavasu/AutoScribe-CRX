@@ -963,6 +963,59 @@
       currentFillMode = mode;
       updateFillStatus(mode);
 
+      if (mode === 'AI') {
+        const settings = await chrome.storage.local.get([
+          'aiProvider',
+          'geminiDefaultKey',
+          'geminiBackupKey',
+          'geminiSelectedModel',
+          'openrouterDefaultKey',
+          'openrouterBackupKey',
+          'openrouterSelectedModel'
+        ]);
+
+        const provider = settings.aiProvider || 'GEMINI';
+        let keyMissing = false;
+        let modelMissing = false;
+
+        if (provider === 'GEMINI') {
+          if (!settings.geminiDefaultKey && !settings.geminiBackupKey) {
+            keyMissing = true;
+          }
+          if (!settings.geminiSelectedModel) {
+            modelMissing = true;
+          }
+        } else {
+          // OpenRouter
+          if (!settings.openrouterDefaultKey && !settings.openrouterBackupKey) {
+            keyMissing = true;
+          }
+          if (!settings.openrouterSelectedModel) {
+            modelMissing = true;
+          }
+        }
+
+        if (keyMissing || modelMissing) {
+          isFilling = false;
+          setRowsEnabled(true);
+          status.className = 'crx-status crx-status-error';
+          if (keyMissing && modelMissing) {
+            status.innerHTML = `${errorIcon}Please enter API key and select API Model in settings`;
+          } else if (keyMissing) {
+            status.innerHTML = `${errorIcon}Please enter API key in settings`;
+          } else {
+            status.innerHTML = `${errorIcon}Please select API Model in settings`;
+          }
+          setTimeout(() => {
+            if (status.className.includes('crx-status-error')) {
+              status.innerHTML = '';
+              status.className = 'crx-status';
+            }
+          }, 4000);
+          return;
+        }
+      }
+
       const store = await chrome.storage.local.get('multiTabEnabled');
       const multiTabEnabled = store.multiTabEnabled !== false;
 
