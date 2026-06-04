@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoScribe Settings</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="settings-content">
+    <div class="tab-pane">
+      
+      <!-- Header with Space Between -->
+      <div class="pane-header">
+        <h2 class="pane-title">Settings</h2>
+        <div class="save-toast" id="status-toast">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+          <span id="status-text">Settings saved</span>
+        </div>
+      </div>
+      
+      <!-- Group 1: General -->
+      <h3 class="section-title">General</h3>
+      <div class="settings-card">
+        <!-- Multi-Tab Fill Row (Inline/Standard) -->
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-name">Multi-Tab Fill</div>
+            <div class="setting-desc">Auto-fill forms across all open tabs simultaneously</div>
+          </div>
+          <div class="setting-action">
+            <label class="toggle-switch" id="switch-container">
+              <input type="checkbox" id="crx-toggle-multitab" checked>
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group 2: API Integration -->
+      <h3 class="section-title">API Integration</h3>
+      <div class="settings-card">
+        <!-- AI Provider Row (Vertical & Full Width) -->
+        <div class="setting-row vertical">
+          <div class="setting-info">
+            <div class="setting-name">AI Provider</div>
+            <div class="setting-desc">Select your preferred AI engine</div>
+          </div>
+          <div class="setting-action">
+            <div class="dropdown-trigger">
+              <select id="crx-provider-select">
+                <option value="GEMINI">Google Gemini</option>
+                <option value="OPENROUTER">OpenRouter</option>
+              </select>
+              <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Default API Key Row (Vertical & Full Width + Backup trigger) -->
+        <div class="setting-row vertical">
+          <div class="setting-info">
+            <div class="setting-header-row">
+              <div class="setting-name">Default API Key</div>
+              <button class="add-backup-btn" type="button" id="btn-toggle-backup-view">Backup Key</button>
+            </div>
+            <div class="setting-desc">Primary key for AI requests (leave blank for built-in keys)</div>
+          </div>
+          <div class="setting-action">
+            <div class="input-wrapper">
+              <input type="password" id="crx-default-key" placeholder="Enter API Key">
+              <button class="eye-btn" type="button" id="btn-toggle-default-key" title="Show/Hide">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Collapsible Backup Key container within the same card row -->
+          <div id="backup-key-container">
+            <div class="mini-title">Backup API Key</div>
+            <div class="setting-action">
+              <div class="input-wrapper">
+                <input type="password" id="crx-backup-key" placeholder="Enter Backup Key">
+                <button class="eye-btn" type="button" id="btn-toggle-backup-key" title="Show/Hide">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Dynamic Model Row (Vertical & Full Width) -->
+        <div class="setting-row vertical">
+          <div class="setting-info">
+            <div class="setting-name">Model</div>
+            <div class="setting-desc">Active model dynamically loaded from provider</div>
+          </div>
+          <div class="setting-action">
+            <div class="dropdown-trigger">
+              <select id="crx-model-select">
+                <!-- Populated dynamically -->
+              </select>
+              <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

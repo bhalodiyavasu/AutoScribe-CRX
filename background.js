@@ -1,18 +1,6 @@
 // ── API Configuration ────────────────────────────────────────────────────────
-const GEMINI_KEYS = [
-  'AQ.Ab8RN6ItrJNC4b11nmc4gBU_GK2Ae0u0AYC5nho9NKw4Bc3DqQ',
-  'AQ.Ab8RN6L3CxPKTHhs7WNjaw6W3FVU9qJyIdxVHNWL6Zhw7c0C8g'
-];
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
-
-const OPENROUTER_KEYS = [
-  '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',
-  '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',
-  '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'
-];
 const OPENROUTER_MODELS = ['openrouter/free'];
-
-let currentKeyIndex = 0;
 
 // ── Script injection on icon click ───────────────────────────────────────────
 chrome.action.onClicked.addListener(async (tab) => {
@@ -31,7 +19,7 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onMessage.addListener(async (msg) => {
     if (msg.type !== 'FILL_WITH_AI') return;
     try {
-      await streamAI(msg.fields, port);
+      await streamAI(msg.fields, msg.sessionSeed, port);
     } catch (e) {
       port.postMessage({ type: 'ERROR', error: e.message });
     }
@@ -39,25 +27,21 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 // ── Prompt generator ─────────────────────────────────────────────────────────
-function generatePrompt(fields) {
-  const seed = Math.random().toString(36).substring(7);
-  return `You are a realistic Indian form data generator. Generate a completely RANDOM and UNIQUE set of values for ONE consistent Indian person. (Session Seed: ${seed})
+function generatePrompt(fields, sessionSeed) {
+  const seed = sessionSeed || Math.random().toString(36).substring(7);
+  return `Generate a JSON object mapping field ID to realistic random values for ONE consistent Indian person. (Session Seed: ${seed})
 
 RULES:
-- Indian names, phone "+91 XXXXX XXXXX" (start 6-9), email with gmail.com/yahoo.in/outlook.in
-- Realistic Indian address with street, area, city, state, pincode
-- Aadhar "XXXX XXXX XXXX", PAN "ABCDE1234F"
-- For "select"/"radio"/"dropdown" → pick ONLY from "options" if provided
-- "number" → respect min/max, "date" → YYYY-MM-DD, "time" → HH:MM
-- "checkbox"/"toggle" → true or false
-- Birth/DOB dates = 20-40 years ago, joining = near future
-- All data must be consistent (same person, city, state)
-- Do NOT generate the same person or values across multiple calls. Make this identity entirely unique.
+- Name: Indian. Phone: "+91 XXXXX XXXXX" (starts with 6-9). Email: gmail/yahoo/outlook.in
+- Address: realistic Indian street, city, state, pincode. Aadhar: "XXXX XXXX XXXX". PAN: "ABCDE1234F"
+- For "o" (options) → select ONLY from the provided options list
+- Date: YYYY-MM-DD. Time: HH:MM (DOB: 20-40 years ago, Joining: future)
+- Checkbox: true/false. Number: respect min/max
 
 FIELDS:
 ${JSON.stringify(fields)}
 
-Return ONLY a JSON object mapping each "id" to its value. No explanation.
+Return ONLY a JSON object mapping the field ID ("i" property) to its value. No markdown styling, no explanation.
 Example: {"f_0":"Aarav","f_1":"aarav.sharma@gmail.com"}`;
 }
 
@@ -73,18 +57,44 @@ function parseErrorMessage(text) {
 
 // ── Fetch from LLM with key rotation & fallback ─────────────────────────────
 async function fetchLLM(prompt, stream = false) {
-  const store = await chrome.storage.local.get('aiProvider');
+  const store = await chrome.storage.local.get([
+    'aiProvider',
+    'geminiDefaultKey',
+    'geminiBackupKey',
+    'geminiSelectedModel',
+    'openrouterDefaultKey',
+    'openrouterBackupKey',
+    'openrouterSelectedModel'
+  ]);
+
   const provider = store.aiProvider || 'GEMINI';
-  const keys = provider === 'GEMINI' ? GEMINI_KEYS : OPENROUTER_KEYS;
+  let keys = [];
+  let modelName = '';
+
+  if (provider === 'GEMINI') {
+    if (store.geminiDefaultKey) keys.push(store.geminiDefaultKey);
+    if (store.geminiBackupKey) keys.push(store.geminiBackupKey);
+    if (keys.length === 0) {
+      throw new Error('Please configure a Gemini API key in the extension settings first.');
+    }
+    modelName = store.geminiSelectedModel || GEMINI_MODEL;
+  } else {
+    if (store.openrouterDefaultKey) keys.push(store.openrouterDefaultKey);
+    if (store.openrouterBackupKey) keys.push(store.openrouterBackupKey);
+    if (keys.length === 0) {
+      throw new Error('Please configure an OpenRouter API key in the extension settings first.');
+    }
+    modelName = store.openrouterSelectedModel || OPENROUTER_MODELS[0];
+  }
+
   let lastError = null;
 
   for (let k = 0; k < keys.length; k++) {
-    const keyIndex = (currentKeyIndex + k) % keys.length;
-    const apiKey = keys[keyIndex];
+    const apiKey = keys[k];
 
     if (provider === 'GEMINI') {
       const action = stream ? 'streamGenerateContent?alt=sse&' : 'generateContent?';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:${action}key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:${action}key=${apiKey}`;
 
       try {
         const res = await fetch(url, {
@@ -95,53 +105,61 @@ async function fetchLLM(prompt, stream = false) {
 
         if (!res.ok) {
           const errText = await res.text().catch(() => '');
-          lastError = `Gemini error ${res.status}: ${parseErrorMessage(errText)}`;
-          console.warn(`[AutoScribe] Gemini key ${keyIndex} failed: ${lastError}`);
+          lastError = parseErrorMessage(errText);
+          console.warn(`[AutoScribe] Gemini key ${k} failed: ${lastError}`);
           continue;
         }
 
-        currentKeyIndex = keyIndex;
         return { res, provider };
       } catch (e) {
         lastError = e.message;
-        console.warn(`[AutoScribe] Gemini fetch failed (key ${keyIndex}): ${lastError}`);
+        console.warn(`[AutoScribe] Gemini fetch failed (key ${k}): ${lastError}`);
       }
     } else {
       // OpenRouter
-      for (const model of OPENROUTER_MODELS) {
-        try {
-          const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model,
-              messages: [{ role: 'user', content: prompt }],
-              temperature: 0.9,
-              stream
-            }),
-          });
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': 'https://github.com/vasubhalodiya',
+            'X-Title': 'AutoScribe Form Filler'
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.9,
+            stream
+          }),
+        });
 
-          if (!res.ok) {
-            const errText = await res.text().catch(() => '');
-            lastError = `OpenRouter error ${res.status}: ${parseErrorMessage(errText)}`;
-            console.warn(`[AutoScribe] OpenRouter key ${keyIndex}, model ${model} failed: ${lastError}`);
-            continue;
-          }
-
-          currentKeyIndex = keyIndex;
-          return { res, provider };
-        } catch (e) {
-          lastError = e.message;
-          console.warn(`[AutoScribe] OpenRouter fetch failed (key ${keyIndex}): ${lastError}`);
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          lastError = parseErrorMessage(errText);
+          console.warn(`[AutoScribe] OpenRouter key ${k} failed: ${lastError}`);
+          continue;
         }
+
+        return { res, provider };
+      } catch (e) {
+        lastError = e.message;
+        console.warn(`[AutoScribe] OpenRouter fetch failed (key ${k}): ${lastError}`);
       }
     }
   }
 
-  throw new Error(`All ${provider} API keys failed. Last error: ${lastError}`);
+  // Construct polished and professional error messages based on key failures
+  let userError = '';
+  if (keys.length === 1) {
+    userError = `Connection failed. The primary API key is invalid or returned an error. Details: ${lastError}`;
+  } else if (keys.length === 2) {
+    userError = `Connection failed. Both the primary and backup API keys failed. Details: ${lastError}`;
+  } else {
+    userError = `Connection failed. The default API keys failed to authenticate. Details: ${lastError}`;
+  }
+
+  throw new Error(userError);
 }
 
 // ── Extract content chunk from SSE based on provider ─────────────────────────
@@ -153,9 +171,9 @@ function extractContent(parsed, provider) {
 }
 
 // ── Stream AI response and send chunks to content script ─────────────────────
-async function streamAI(fields, port) {
+async function streamAI(fields, sessionSeed, port) {
   try {
-    const prompt = generatePrompt(fields);
+    const prompt = generatePrompt(fields, sessionSeed);
     const { res, provider } = await fetchLLM(prompt, true);
 
     const reader = res.body.getReader();
@@ -163,7 +181,7 @@ async function streamAI(fields, port) {
     let buffer = '';
     let accumulatedText = '';
     const filledKeys = new Set();
-    const requestedKeys = fields.map(f => f.id);
+    const requestedKeys = fields.map(f => f.i);
 
     while (true) {
       const { done, value } = await reader.read();
@@ -192,8 +210,8 @@ async function streamAI(fields, port) {
             if (filledKeys.has(key)) continue;
 
             const val = match[2] !== undefined ? match[2]
-                      : match[3] !== undefined ? Number(match[3])
-                      : match[4] === 'true';
+              : match[3] !== undefined ? Number(match[3])
+                : match[4] === 'true';
 
             newValues[key] = val;
             filledKeys.add(key);
@@ -206,7 +224,7 @@ async function streamAI(fields, port) {
 
           // Early exit if all fields are filled
           if (requestedKeys.every(k => filledKeys.has(k))) {
-            try { reader.cancel(); } catch (_) {}
+            try { reader.cancel(); } catch (_) { }
             port.postMessage({ type: 'DONE' });
             return;
           }
@@ -221,3 +239,80 @@ async function streamAI(fields, port) {
     port.postMessage({ type: 'ERROR', error: e.message });
   }
 }
+
+// ── Dynamic Model Fetching Helpers ──────────────────────────────────────────
+async function fetchModelsForProvider(provider, apiKey) {
+  if (provider === 'GEMINI') {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`Failed to fetch Gemini models: ${res.status} - ${txt}`);
+    }
+    const data = await res.json();
+    return (data.models || [])
+      .filter(m => m.name && m.name.includes('gemini') && m.supportedGenerationMethods?.includes('generateContent'))
+      .map(m => m.name.replace(/^models\//, ''));
+  } else {
+    // OpenRouter
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+    const res = await fetch('https://openrouter.ai/api/v1/models', { headers });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`Failed to fetch OpenRouter models: ${res.status} - ${txt}`);
+    }
+    const data = await res.json();
+    return (data.data || []).map(m => m.id);
+  }
+}
+
+async function getModelsHelper(provider, customDefaultKey, customBackupKey) {
+  let keysToTry = [];
+  if (customDefaultKey) keysToTry.push(customDefaultKey);
+  if (customBackupKey) keysToTry.push(customBackupKey);
+  if (keysToTry.length === 0) {
+    const fallbackModels = provider === 'GEMINI'
+      ? ['gemini-2.5-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro']
+      : ['openrouter/free', 'google/gemini-2.5-flash:free', 'meta-llama/llama-3-8b-instruct:free'];
+    return { success: false, models: fallbackModels, error: 'No API keys provided. Please configure a key in the settings panel.' };
+  }
+
+  let lastError = null;
+  for (const key of keysToTry) {
+    try {
+      const models = await fetchModelsForProvider(provider, key);
+      if (models && models.length > 0) {
+        return { success: true, models };
+      }
+    } catch (e) {
+      lastError = e.message;
+    }
+  }
+
+  // Fallback to static lists if everything fails
+  const fallbackModels = provider === 'GEMINI'
+    ? ['gemini-2.5-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro']
+    : ['openrouter/free', 'google/gemini-2.5-flash:free', 'meta-llama/llama-3-8b-instruct:free'];
+
+  return { success: false, models: fallbackModels, error: lastError };
+}
+
+// ── Message listener for opening Side Panel & fetching models ───────────────
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'OPEN_SIDE_PANEL') {
+    if (chrome.sidePanel && typeof chrome.sidePanel.open === 'function') {
+      chrome.sidePanel.open({ tabId: sender.tab.id })
+        .catch(err => console.error('[AutoScribe] Failed to open side panel:', err));
+    } else {
+      console.warn('[AutoScribe] chrome.sidePanel API not supported in this environment.');
+    }
+  } else if (msg.type === 'FETCH_MODELS') {
+    getModelsHelper(msg.provider, msg.defaultKey, msg.backupKey)
+      .then(res => sendResponse(res))
+      .catch(err => sendResponse({ success: false, models: [], error: err.message }));
+    return true; // Keep message channel open for async response
+  }
+});

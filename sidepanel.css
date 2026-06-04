@@ -1,0 +1,321 @@
+:root {
+  --vscode-bg: #1e1e1e;
+  --vscode-fg: #cccccc;
+  --ax-border: #3c3c3c;
+  --ax-bg-hover: rgba(255, 255, 255, 0.05);
+  --ax-bg-active: rgba(255, 255, 255, 0.1);
+  --ax-fg-secondary: #8b8b8b;
+  --ax-accent: #007acc;
+  --ax-accent-fg: #ffffff;
+  --r-md: 10px;
+  --r-xl: 20px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--vscode-bg);
+  color: var(--vscode-fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.settings-content {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 16px 14px;
+}
+
+.tab-pane {
+  width: 100%;
+  max-width: 800px;
+}
+
+/* Header layout updated for "space-between" with the toast */
+.pane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.pane-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vscode-fg);
+  margin: 0;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ax-fg-secondary);
+  margin-top: 16px;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.settings-card {
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--ax-border);
+  border-radius: var(--r-xl, 20px);
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+}
+
+/* Vertical layout (inputs below titles and taking full width) */
+.setting-row.vertical {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.setting-row.vertical .setting-info {
+  padding-right: 0;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.setting-row.vertical .setting-action {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.setting-row.vertical .dropdown-trigger,
+.setting-row.vertical .input-wrapper {
+  width: 100%; /* Occupies full width */
+}
+
+.divider {
+  height: 1px;
+  background-color: var(--ax-border);
+  width: 100%;
+}
+
+.setting-info {
+  flex: 1;
+  padding-right: 16px;
+}
+
+.setting-name {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--vscode-fg);
+}
+
+.setting-desc {
+  font-size: 11px;
+  color: var(--ax-fg-secondary);
+  line-height: 1.3;
+}
+
+.setting-action {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* UI Elements - Header inside Row */
+.setting-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.add-backup-btn {
+  background: none;
+  border: none;
+  color: var(--ax-accent);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.add-backup-btn:hover {
+  background-color: var(--ax-bg-hover);
+}
+
+.mini-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--vscode-fg);
+  margin: 8px 0px;
+}
+
+/* Collapsible Backup Key container */
+#backup-key-container {
+  display: none;
+  margin-top: 12px;
+  width: 100%;
+}
+
+#backup-key-container.visible {
+  display: block;
+}
+
+/* UI Elements - Dropdown */
+.dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 140px;
+  background: #3c3c3c;
+  border: 1px solid #3c3c3c;
+  border-radius: 6px; 
+  font-size: 12px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden; 
+}
+
+.dropdown-trigger select {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--vscode-fg);
+  width: 100%;
+  height: 100%;
+  padding: 6px 26px 6px 10px; 
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  z-index: 2;
+}
+
+.dropdown-trigger select option {
+  background: #252526;
+  color: var(--vscode-fg);
+}
+
+.chevron-icon {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--vscode-fg);
+  opacity: 0.8;
+  z-index: 1;
+}
+
+/* UI Elements - Toggle Switch */
+.toggle-switch {
+  width: 32px;
+  height: 18px;
+  background-color: #444;
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: inline-block;
+}
+
+.toggle-switch.checked {
+  background-color: var(--ax-accent, #007acc);
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggle-thumb {
+  width: 14px;
+  height: 14px;
+  background-color: #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s ease;
+  pointer-events: none;
+}
+
+.toggle-switch input:checked + .toggle-thumb {
+  transform: translateX(14px);
+}
+
+/* UI Elements - Input Wrapper with eye icon button */
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 140px; 
+  background: #3c3c3c;
+  border: 1px solid #3c3c3c;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.input-wrapper input {
+  background: transparent;
+  border: none;
+  color: var(--vscode-fg);
+  padding: 6px 30px 6px 10px;
+  width: 100%;
+  font-size: 12px;
+  outline: none;
+  font-family: inherit;
+}
+
+.eye-btn {
+  position: absolute;
+  right: 4px;
+  background: none;
+  border: none;
+  color: var(--ax-fg-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  outline: none;
+  transition: color 0.2s ease;
+}
+
+.eye-btn:hover {
+  color: var(--vscode-fg);
+}
+
+.eye-icon {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+/* Save Toast */
+.save-toast {
+  display: none; /* Hidden by default */
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  background-color: rgba(0, 122, 204, 0.1);
+  border: 1px solid var(--ax-accent);
+  color: var(--vscode-fg);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.save-toast.visible {
+  display: flex;
+}
+
+.save-toast svg {
+  margin-right: 4px;
+}

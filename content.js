@@ -11,17 +11,42 @@
   }
 
   // ── Constants ──────────────────────────────────────────────────────────────
-  const THEME        = '#22c55e';
-  const GLOW_MS      = 1000;
-  const TAB_WAIT_MS  = 500;
+  const THEME = '#22c55e';
+  const GLOW_MS = 1000;
+  const TAB_WAIT_MS = 500;
 
   // ── State ──────────────────────────────────────────────────────────────────
   let errorCount = 0;
 
   // ── Utilities ─────────────────────────────────────────────────────────────
-  const sleep  = ms => new Promise(r => setTimeout(r, ms));
-  const norm   = s  => String(s).toLowerCase().replace(/[-_\s[\]./*:]/g,'');
-  const clean  = s  => s.replace(/[*\s]+$/g, '').trim();
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const norm = s => String(s).toLowerCase().replace(/[-_\s[\]./*:]/g, '');
+  const clean = s => s.replace(/[*\s]+$/g, '').trim();
+
+  const getFieldSignature = el => {
+    if (!el) return '';
+    const name = el.name || el.id || '';
+    const label = (typeof el.getAttribute === 'function') ? getLabel(el) : (el.label || '');
+    const placeholder = el.placeholder || '';
+    const type = el.type || (typeof el.tagName === 'string' ? el.tagName.toLowerCase() : '');
+    const normSig = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+    return `${normSig(name)}_${normSig(label)}_${normSig(placeholder)}_${type}`;
+  };
+
+  const getElementValue = el => {
+    if (!el || typeof el.getAttribute !== 'function') return '';
+    if (el.tagName === 'SELECT') {
+      return el.value || '';
+    }
+    if (el.type === 'checkbox' || el.type === 'radio') {
+      return el.checked ? 'true' : 'false';
+    }
+    if (el.getAttribute('role') === 'checkbox' || el.getAttribute('role') === 'switch') {
+      const checked = el.getAttribute('aria-checked') === 'true' || el.dataset?.state === 'checked';
+      return checked ? 'true' : 'false';
+    }
+    return el.value || '';
+  };
 
   const extractPlaceholderExample = placeholder => {
     if (!placeholder) return null;
@@ -38,6 +63,7 @@
 
   // ── Label resolution ──────────────────────────────────────────────────────
   const getLabel = el => {
+    if (!el || typeof el.getAttribute !== 'function') return '';
     const aria = el.getAttribute('aria-label');
     if (aria) return clean(aria);
 
@@ -66,7 +92,10 @@
     return '';
   };
 
-  const getKey = el => (el.name || el.id || el.getAttribute('data-name') || '').trim();
+  const getKey = el => {
+    if (!el || typeof el.getAttribute !== 'function') return '';
+    return (el.name || el.id || el.getAttribute('data-name') || '').trim();
+  };
 
   const isVisible = (el, checkRect = true) => {
     if (!document.contains(el)) return false;
@@ -86,16 +115,16 @@
   const shouldSkip = el => {
     if (el.disabled || el.readOnly) return true;
     if (el.getAttribute('tabindex') === '-1' || el.getAttribute('aria-hidden') === 'true') return true;
-    
+
     const t = (el.type || '').toLowerCase();
-    if (['hidden','submit','button','file','password','image','reset'].includes(t)) return true;
-    
+    if (['hidden', 'submit', 'button', 'file', 'password', 'image', 'reset'].includes(t)) return true;
+
     // Skip duplicate hidden inputs inside Radix UI checkboxes/radios
     try {
       const style = getComputedStyle(el);
       if (style.opacity === '0' || style.pointerEvents === 'none') return true;
-    } catch (_) {}
-    
+    } catch (_) { }
+
     const r = el.getBoundingClientRect();
     if (r.width > 0 && r.width <= 1) return true;
     if (r.height > 0 && r.height <= 1) return true;
@@ -123,9 +152,9 @@
   };
 
   const applyGlow = el => {
-    el.style.setProperty('outline',        `2px solid ${THEME}`, 'important');
-    el.style.setProperty('outline-offset', '2px',                'important');
-    el.style.setProperty('box-shadow',     `inset 0 0 0 1px ${THEME}33`, 'important');
+    el.style.setProperty('outline', `2px solid ${THEME}`, 'important');
+    el.style.setProperty('outline-offset', '2px', 'important');
+    el.style.setProperty('box-shadow', `inset 0 0 0 1px ${THEME}33`, 'important');
     return () => {
       el.style.removeProperty('outline');
       el.style.removeProperty('outline-offset');
@@ -144,8 +173,8 @@
   const setVal = (el, val, skipBlur = true) => {
     const proto =
       el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype :
-      el.tagName === 'SELECT'   ? HTMLSelectElement.prototype   :
-                                  HTMLInputElement.prototype;
+        el.tagName === 'SELECT' ? HTMLSelectElement.prototype :
+          HTMLInputElement.prototype;
 
     const nativeSet = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
     try {
@@ -180,18 +209,18 @@
                 });
                 break;
               }
-            } catch (_) {}
+            } catch (_) { }
           }
         }
         fiber = fiber.return;
       }
-    } catch (_) {}
+    } catch (_) { }
   };
 
   // ── Simulated pointer events ───────────────────────────────────────────────
   const tap = el => {
     if (!el) return;
-    ['pointerdown','mousedown','pointerup','mouseup','click'].forEach(type =>
+    ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(type =>
       el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }))
     );
   };
@@ -214,7 +243,7 @@
         }
         fiber = fiber.return;
       }
-    } catch (_) {}
+    } catch (_) { }
     return null;
   };
 
@@ -243,7 +272,7 @@
             try {
               const r = mp.control.register(mp.name);
               if (typeof r?.onChange === 'function') { r.onChange(chosen.value ?? chosen); return true; }
-            } catch (_) {}
+            } catch (_) { }
             try {
               if (typeof mp.control._setFieldValue === 'function') {
                 mp.control._setFieldValue(mp.name, chosen.value ?? chosen);
@@ -253,12 +282,12 @@
                 });
                 return true;
               }
-            } catch (_) {}
+            } catch (_) { }
           }
         }
         fiber = fiber.return;
       }
-    } catch (_) {}
+    } catch (_) { }
     return false;
   };
 
@@ -276,8 +305,8 @@
     let portal = null;
     const hideEl = node => {
       node.style.setProperty('visibility', 'hidden', 'important');
-      node.style.setProperty('animation',  'none',   'important');
-      node.style.setProperty('transition', 'none',   'important');
+      node.style.setProperty('animation', 'none', 'important');
+      node.style.setProperty('transition', 'none', 'important');
     };
 
     const obs = new MutationObserver(mutations => {
@@ -325,7 +354,7 @@
     if (!currentStatusElement) return;
     const isKrisper = window.KRISPER_DATA && window.KRISPER_DATA.isKrisper();
     const formName = isKrisper ? 'Krisper Form' : 'Form';
-    
+
     if (filledCount > 0) {
       currentStatusElement.innerHTML = `<span class="crx-spinner"></span> Filling ${formName}... (${filledCount})`;
     } else {
@@ -357,12 +386,12 @@
       ':not([disabled]):not([readonly]),' +
       'textarea:not([disabled]):not([readonly])'
     )).filter(el => !shouldSkip(el) && (isVisible(el) || isVisible(el, false))).forEach(el => {
-      try { setVal(el, '', true); } catch (_) {}
+      try { setVal(el, '', true); } catch (_) { }
     });
 
     scope.querySelectorAll('select:not([disabled])').forEach(el => {
       if (!isVisible(el)) return;
-      try { if (el.options.length > 0) setVal(el, el.options[0].value, true); } catch (_) {}
+      try { if (el.options.length > 0) setVal(el, el.options[0].value, true); } catch (_) { }
     });
 
     scope.querySelectorAll('input[type="checkbox"]:not([disabled]),input[type="radio"]:not([disabled])').forEach(el => {
@@ -371,7 +400,7 @@
         const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
         if (desc?.set) desc.set.call(el, false); else el.checked = false;
         el.dispatchEvent(new Event('change', { bubbles: true }));
-      } catch (_) {}
+      } catch (_) { }
     });
 
     scope.querySelectorAll('[role="switch"]:not([disabled]),[role="checkbox"]:not(input):not([disabled])').forEach(el => {
@@ -562,7 +591,7 @@
   // ═══════════════════════════════════════════════════════════════════════════
   //  fillFormWithData — fills target elements with supplied/calculated values
   // ═══════════════════════════════════════════════════════════════════════════
-  const fillFormWithData = async (scope, fields, values, mode = 'AI') => {
+  const fillFormWithData = async (scope, fields, values, mode = 'AI', isFirst = true) => {
     const allInputs = Array.from(scope.querySelectorAll(
       'input:not([type="file"]):not([type="hidden"]):not([type="password"]):not([disabled]):not([readonly]),' +
       'textarea:not([disabled]), select:not([disabled]), [role="switch"]:not([disabled]),' +
@@ -594,8 +623,8 @@
           const key = getKey(item);
           const lbl = getLabel(item);
           return (f.name && key && norm(key) === norm(f.name)) ||
-                 (f.label && lbl && norm(lbl) === norm(f.label)) ||
-                 (f.placeholder && item.placeholder && norm(item.placeholder) === norm(f.placeholder));
+            (f.label && lbl && norm(lbl) === norm(f.label)) ||
+            (f.placeholder && item.placeholder && norm(item.placeholder) === norm(f.placeholder));
         });
       }
 
@@ -612,7 +641,7 @@
             const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
             if (desc?.set) desc.set.call(el, shouldCheck); else el.checked = shouldCheck;
             el.dispatchEvent(new Event('change', { bubbles: true }));
-            el.dispatchEvent(new Event('click',  { bubbles: true }));
+            el.dispatchEvent(new Event('click', { bubbles: true }));
           }
         } else if (f.type === 'toggle') {
           const shouldBeOn = val === true || val === 'true';
@@ -626,7 +655,7 @@
             const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
             if (desc?.set) desc.set.call(targetRadio, true); else targetRadio.checked = true;
             targetRadio.dispatchEvent(new Event('change', { bubbles: true }));
-            targetRadio.dispatchEvent(new Event('click',  { bubbles: true }));
+            targetRadio.dispatchEvent(new Event('click', { bubbles: true }));
             radios.forEach(r => filledEls.add(r));
           }
         } else if (f.type === 'custom-dropdown') {
@@ -654,6 +683,8 @@
       }
     }
 
+
+
     if (mode === 'NORMAL' && unresolvedFields.length > 0) {
       // Use local static defaults to avoid API call latencies in Quick Fill mode
       const fallbacks = {};
@@ -676,7 +707,7 @@
         }
         fallbacks[uf.id] = val;
       });
-      await fillFormWithData(scope, unresolvedFields, fallbacks, 'AI');
+      await fillFormWithData(scope, unresolvedFields, fallbacks, 'AI', isFirst);
     }
   };
 
@@ -765,15 +796,32 @@
     const stopDragging = e => {
       if (isDragging) {
         isDragging = false;
-        try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+        try { handle.releasePointerCapture(e.pointerId); } catch (_) { }
       }
     };
 
     handle.addEventListener('pointerup', stopDragging);
     handle.addEventListener('pointercancel', stopDragging);
 
+    // Keep floating card clamped in viewport when window resizes (e.g. sidebar opens)
+    const handleResize = () => {
+      if (root.style.right === 'auto') {
+        const rect = root.getBoundingClientRect();
+        const maxLeft = window.innerWidth - rect.width;
+        const maxTop = window.innerHeight - rect.height;
+        let newLeft = root.offsetLeft;
+        let newTop = root.offsetTop;
+        if (newLeft > maxLeft) newLeft = Math.max(0, maxLeft);
+        if (newTop > maxTop) newTop = Math.max(0, maxTop);
+        root.style.left = `${newLeft}px`;
+        root.style.top = `${newTop}px`;
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
     // ── Close button ────────────────────────────────────────────────────────
     shadow.getElementById('crx-close-btn').addEventListener('click', e => {
+      window.removeEventListener('resize', handleResize);
       root.remove();
       e.stopPropagation();
     });
@@ -794,15 +842,7 @@
 
     btnSettings.addEventListener('click', e => {
       e.stopPropagation();
-      container.classList.add('crx-settings-open');
-      handle.style.display = 'none';
-      btnBack.style.display = 'block';
-      btnSettings.style.display = 'none';
-      
-      btnAI.style.display = 'none';
-      btnNormal.style.display = 'none';
-      rowMultitab.style.display = 'flex';
-      rowProvider.style.display = 'flex';
+      chrome.runtime.sendMessage({ type: 'OPEN_SIDE_PANEL' });
     });
 
     btnBack.addEventListener('click', e => {
@@ -811,7 +851,7 @@
       handle.style.display = 'block';
       btnBack.style.display = 'none';
       btnSettings.style.display = 'block';
-      
+
       btnAI.style.display = 'flex';
       btnNormal.style.display = 'flex';
       rowMultitab.style.display = 'none';
@@ -866,26 +906,49 @@
 
     let aiFailed = false;
 
-    const fillWithAIStream = async (scopeToFill, fieldsToFill) => {
+    const fillWithAIStream = async (scopeToFill, fieldsToFill, isFirst = true) => {
       if (fieldsToFill.length === 0) return;
       if (aiFailed) {
         throw new Error('AI Streaming Disabled Due to Previous Failure.');
       }
+
+      // Load session seed from storage
+      const store = await chrome.storage.local.get('autoscribe_session_seed');
+      const sessionSeed = store.autoscribe_session_seed || Math.random().toString(36).substring(7);
+
+      // Compress options list and payload structure to minimize input tokens
+      const compressedFields = fieldsToFill.map(f => {
+        const comp = { i: f.id, t: f.type };
+        if (f.label) comp.l = f.label.slice(0, 25);
+        if (f.placeholder) comp.p = f.placeholder.slice(0, 25);
+        if (f.name) comp.n = f.name.slice(0, 25);
+        if (f.min !== undefined) comp.min = f.min;
+        if (f.max !== undefined) comp.max = f.max;
+        if (f.options) {
+          comp.o = f.options.map(o => String(o.text).slice(0, 25)).slice(0, 12);
+        }
+        return comp;
+      });
+
       return new Promise((resolve, reject) => {
         const port = chrome.runtime.connect({ name: 'autoscribe-fill' });
-        port.postMessage({ type: 'FILL_WITH_AI', fields: fieldsToFill });
-        
+        port.postMessage({ 
+          type: 'FILL_WITH_AI', 
+          fields: compressedFields, 
+          sessionSeed: sessionSeed 
+        });
+
         const activePromises = [];
-        
+
         port.onMessage.addListener((msg) => {
           if (!document.getElementById('autoscribe-panel-root')) {
             port.disconnect();
             resolve();
             return;
           }
-          
+
           if (msg.type === 'CHUNK') {
-            const p = fillFormWithData(scopeToFill, fieldsToFill, msg.values, 'AI');
+            const p = fillFormWithData(scopeToFill, fieldsToFill, msg.values, 'AI', isFirst);
             activePromises.push(p);
           } else if (msg.type === 'DONE') {
             port.disconnect();
@@ -896,7 +959,7 @@
             reject(new Error(msg.error));
           }
         });
-        
+
         port.onDisconnect.addListener(() => {
           Promise.all(activePromises).then(() => resolve());
         });
@@ -906,6 +969,7 @@
     const executeFillFlow = async (mode) => {
       if (isFilling) return;
       isFilling = true;
+      let isFirst = true;
       setRowsEnabled(false);
       filledCount = 0;
       filledEls.clear();
@@ -919,6 +983,12 @@
       if (window.AUTOSCRIBE_DATA && typeof window.AUTOSCRIBE_DATA.regenerateIdentity === 'function') {
         window.AUTOSCRIBE_DATA.regenerateIdentity();
       }
+      if (window.KRISPER_DATA && typeof window.KRISPER_DATA.regenerateIdentity === 'function') {
+        window.KRISPER_DATA.regenerateIdentity();
+      }
+
+      const freshSeed = Math.random().toString(36).substring(7);
+      await chrome.storage.local.set({ autoscribe_session_seed: freshSeed });
 
       if (mode === 'AI') {
         container.classList.add('crx-loading-ai');
@@ -949,7 +1019,7 @@
           if (!document.getElementById('autoscribe-panel-root')) return;
           status.className = 'crx-status crx-status-running';
           updateFillStatus(mode);
-          
+
           await window.KRISPER_DATA.fillForm({
             scope,
             mode,
@@ -965,11 +1035,11 @@
             fillWithAIStream,
             multiTabEnabled
           });
-          
+
           if (!document.getElementById('autoscribe-panel-root')) return;
           status.className = 'crx-status crx-status-success';
           status.innerHTML = `${successIcon}${filledCount} Fields Filled`;
-          
+
           setTimeout(() => {
             if (!document.getElementById('autoscribe-panel-root')) return;
             if (status.innerHTML.toLowerCase().includes('filled')) {
@@ -988,18 +1058,19 @@
 
         if (!document.getElementById('autoscribe-panel-root')) return;
         const activeTabs = Array.from(scope.querySelectorAll('[role="tab"][aria-selected="true"]:not([disabled])'));
-        const otherTabs  = Array.from(scope.querySelectorAll('[role="tab"]:not([aria-selected="true"]):not([disabled])'));
-        const allTabs    = [...activeTabs, ...otherTabs];
+        const otherTabs = Array.from(scope.querySelectorAll('[role="tab"]:not([aria-selected="true"]):not([disabled])'));
+        const allTabs = [...activeTabs, ...otherTabs];
 
         // Unified fill logic for both AI and NORMAL modes
         const fillScopeFields = async () => {
           const fields = scanScope(scope);
           if (fields.length === 0) return;
           if (mode === 'AI') {
-            await fillWithAIStream(scope, fields);
+            await fillWithAIStream(scope, fields, isFirst);
           } else {
-            await fillFormWithData(scope, fields, {}, 'NORMAL');
+            await fillFormWithData(scope, fields, {}, 'NORMAL', isFirst);
           }
+          isFirst = false;
         };
 
         status.className = 'crx-status crx-status-running';
@@ -1042,7 +1113,7 @@
         console.error('[AutoScribe]', err);
         status.className = 'crx-status crx-status-error';
         status.innerHTML = `${errorIcon}${err.message || 'Something Went Wrong'}`;
-        
+
         errorCount++;
         if (errorCount >= 3) {
           status.innerHTML = `<span style="color:#ef4444">3 errors reached. Closing...</span>`;
@@ -1074,6 +1145,8 @@
       e.stopPropagation();
       executeFillFlow('NORMAL');
     });
+
+
   };
 
   await mountPopup();

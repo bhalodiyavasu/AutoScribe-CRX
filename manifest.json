@@ -10,8 +10,11 @@
     "default_icon": "icons/icon.png",
     "default_title": "AutoScribe – AI Fill Form"
   },
-  "permissions": ["activeTab", "scripting", "storage"],
+  "permissions": ["activeTab", "scripting", "storage", "sidePanel"],
   "host_permissions": ["<all_urls>"],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "icons": {
     "128": "icons/icon.png"
   },
