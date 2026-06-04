@@ -3,9 +3,16 @@
   if (document.getElementById('autoscribe-panel-root')) {
     const root = document.getElementById('autoscribe-panel-root');
     const panel = root.shadowRoot?.querySelector('.autoscribe-floating');
-    if (panel) {
-      panel.style.transform = 'scale(1.05)';
-      setTimeout(() => { panel.style.transform = 'scale(1)'; }, 150);
+    if (root.getAttribute('data-has-been-dragged') === 'true' && typeof root.snapToTopRight === 'function') {
+      root.snapToTopRight();
+      if (typeof root.resetDragState === 'function') {
+        root.resetDragState();
+      }
+    } else {
+      if (panel) {
+        panel.style.transform = 'scale(1.05)';
+        setTimeout(() => { panel.style.transform = 'scale(1)'; }, 150);
+      }
     }
     return;
   }
@@ -741,6 +748,34 @@
     let startY = 0;
     let hasMoved = false;
     let inactivityTimeout = null;
+    let hasBeenDragged = false;
+
+    // ── Resize Observer to prevent viewport overflow ────────────────────────
+    const resizeObserver = new ResizeObserver(entries => {
+      if (isDragging) return;
+      for (const entry of entries) {
+        const rect = root.getBoundingClientRect();
+        const width = entry.contentRect.width || rect.width;
+        const height = entry.contentRect.height || rect.height;
+
+        const margin = 20;
+        let left = rect.left;
+        let top = rect.top;
+
+        const maxLeft = window.innerWidth - width - margin;
+        const maxTop = window.innerHeight - height - margin;
+
+        let targetLeft = Math.max(margin, Math.min(left, maxLeft));
+        let targetTop = Math.max(margin, Math.min(top, maxTop));
+
+        if (targetLeft !== left || targetTop !== top) {
+          root.style.left = `${targetLeft}px`;
+          root.style.top = `${targetTop}px`;
+          root.style.right = 'auto';
+        }
+      }
+    });
+    resizeObserver.observe(container);
 
     const getTargetWidth = () => {
       if (container.classList.contains('crx-collapsed')) return 40;
@@ -813,6 +848,12 @@
       }, 500);
     };
 
+    root.snapToTopRight = snapToTopRight;
+    root.resetDragState = () => {
+      hasBeenDragged = false;
+      root.removeAttribute('data-has-been-dragged');
+    };
+
     const collapsePanel = (isAutomatic = false) => {
       if (container.classList.contains('crx-collapsed')) return;
 
@@ -845,10 +886,14 @@
         inactivityTimeout = null;
       }
 
-      if (isAutomatic) {
-        snapToTopRight();
-      } else {
+      if (hasBeenDragged) {
         snapToNearestEdge();
+      } else {
+        if (isAutomatic) {
+          snapToTopRight();
+        } else {
+          snapToNearestEdge();
+        }
       }
     };
 
@@ -874,7 +919,11 @@
 
       container.classList.remove('crx-collapsed');
       startInactivityTimer();
-      snapToNearestEdge();
+      if (hasBeenDragged) {
+        // Let the ResizeObserver dynamically clamp the position on expansion
+      } else {
+        snapToNearestEdge();
+      }
     };
 
     // Trigger slide-in transition and start inactivity timer
@@ -937,6 +986,8 @@
       const dy = e.clientY - startY;
       if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
         hasMoved = true;
+        hasBeenDragged = true;
+        root.setAttribute('data-has-been-dragged', 'true');
       }
 
       const rect = root.getBoundingClientRect();
@@ -1005,6 +1056,7 @@
         clearTimeout(inactivityTimeout);
         inactivityTimeout = null;
       }
+      try { resizeObserver.disconnect(); } catch (_) {}
       window.removeEventListener('resize', handleResize);
       container.classList.remove('crx-visible');
       setTimeout(() => {
