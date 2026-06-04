@@ -881,6 +881,12 @@
     setTimeout(() => {
       container.classList.add('crx-visible');
       startInactivityTimer();
+
+      // Convert right-based to left-based positioning immediately
+      // so the first snap transition has a valid 'left' value to animate from
+      const initRect = root.getBoundingClientRect();
+      root.style.left = `${initRect.left}px`;
+      root.style.right = 'auto';
     }, 20);
 
     // Reset inactivity timer on click or interaction inside container
