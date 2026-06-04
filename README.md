@@ -13,6 +13,7 @@ Auto-fill any web form with realistic Indian data — using AI or instant local 
 - <img src="https://api.iconify.design/lucide/layers.svg?color=%2322c55e" width="16" height="16" style="vertical-align: middle;"> **Multi-Tab Support** — Fills across tabbed forms automatically
 - <img src="https://api.iconify.design/lucide/atom.svg?color=%2322c55e" width="16" height="16" style="vertical-align: middle;"> **React Compatible** — Works with React, Radix UI, and react-hook-form
 - <img src="https://api.iconify.design/lucide/palette.svg?color=%2322c55e" width="16" height="16" style="vertical-align: middle;"> **Minimal Dark UI** — Draggable floating panel with live feedback
+- <img src="https://api.iconify.design/lucide/settings.svg?color=%2322c55e" width="16" height="16" style="vertical-align: middle;"> **Custom API Settings** — Configure Gemini/OpenRouter API keys, toggle providers, and select LLM models dynamically
 
 ---
 
@@ -40,6 +41,6 @@ Auto-fill any web form with realistic Indian data — using AI or instant local 
 |--------|-------------|
 | Click **AI Smart Fill** | Fills form using AI-generated Indian data (needs internet) |
 | Click **Quick Auto Fill** | Fills form instantly with local random data (works offline) |
-| Click <img src="https://api.iconify.design/lucide/settings.svg?color=%2322c55e" width="16" height="16" style="vertical-align: middle;"> | Toggle multi-tab fill and switch AI provider |
+| Click <img src="https://api.iconify.design/lucide/settings.svg?color=%2322c55e" width="16" height="16" style="vertical-align: middle;"> | Configure API keys, toggle AI providers, select models, and manage multi-tab fill |
 | Drag <img src="https://api.iconify.design/lucide/grip-vertical.svg?color=%2322c55e" width="16" height="16" style="vertical-align: middle;"> | Move the panel anywhere on screen |
 | Click <img src="https://api.iconify.design/lucide/x.svg?color=%2322c55e" width="16" height="16" style="vertical-align: middle;"> | Close the panel |
