@@ -23,31 +23,6 @@
   const norm = s => String(s).toLowerCase().replace(/[-_\s[\]./*:]/g, '');
   const clean = s => s.replace(/[*\s]+$/g, '').trim();
 
-  const getFieldSignature = el => {
-    if (!el) return '';
-    const name = el.name || el.id || '';
-    const label = (typeof el.getAttribute === 'function') ? getLabel(el) : (el.label || '');
-    const placeholder = el.placeholder || '';
-    const type = el.type || (typeof el.tagName === 'string' ? el.tagName.toLowerCase() : '');
-    const normSig = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
-    return `${normSig(name)}_${normSig(label)}_${normSig(placeholder)}_${type}`;
-  };
-
-  const getElementValue = el => {
-    if (!el || typeof el.getAttribute !== 'function') return '';
-    if (el.tagName === 'SELECT') {
-      return el.value || '';
-    }
-    if (el.type === 'checkbox' || el.type === 'radio') {
-      return el.checked ? 'true' : 'false';
-    }
-    if (el.getAttribute('role') === 'checkbox' || el.getAttribute('role') === 'switch') {
-      const checked = el.getAttribute('aria-checked') === 'true' || el.dataset?.state === 'checked';
-      return checked ? 'true' : 'false';
-    }
-    return el.value || '';
-  };
-
   const extractPlaceholderExample = placeholder => {
     if (!placeholder) return null;
     const match = placeholder.match(/(?:e\.g\.|eg\.|example\s*:|like)\s*["'«“]?([^"'\r\n»”]+)/i);
@@ -757,6 +732,11 @@
     // Resolve extension logo URL dynamically
     shadow.getElementById('crx-logo-img').src = chrome.runtime.getURL('icons/icon.png');
 
+    // Trigger slide-in transition
+    setTimeout(() => {
+      container.classList.add('crx-visible');
+    }, 20);
+
     // ── Drag & Drop Handlers (Pointer Capture & Viewport Clamping) ──────────
     const handle = shadow.getElementById('crx-drag-handle');
     let isDragging = false;
@@ -822,7 +802,13 @@
     // ── Close button ────────────────────────────────────────────────────────
     shadow.getElementById('crx-close-btn').addEventListener('click', e => {
       window.removeEventListener('resize', handleResize);
-      root.remove();
+      container.classList.remove('crx-visible');
+      setTimeout(() => {
+        root.remove();
+        try {
+          chrome.runtime.sendMessage({ type: 'CLOSE_SIDE_PANEL' });
+        } catch (_) {}
+      }, 400);
       e.stopPropagation();
     });
 
@@ -1118,7 +1104,17 @@
         if (errorCount >= 3) {
           status.innerHTML = `<span style="color:#ef4444">3 errors reached. Closing...</span>`;
           setTimeout(() => {
-            document.getElementById('autoscribe-panel-root')?.remove();
+            const root = document.getElementById('autoscribe-panel-root');
+            if (root) {
+              const panel = root.shadowRoot?.querySelector('.autoscribe-floating');
+              if (panel) panel.classList.remove('crx-visible');
+              setTimeout(() => {
+                root.remove();
+                try {
+                  chrome.runtime.sendMessage({ type: 'CLOSE_SIDE_PANEL' });
+                } catch (_) {}
+              }, 400);
+            }
             errorCount = 0;
           }, 1500);
         }

@@ -211,4 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => toast.classList.remove('visible'), 2000);
     }
   }
+
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type === 'CLOSE_SIDE_PANEL') {
+      window.close();
+    }
+  });
 });
