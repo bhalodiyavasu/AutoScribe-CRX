@@ -277,6 +277,36 @@ window.AUTOSCRIBE_DATA = (() => {
   const futureDate = (minD = 0, maxD = 365) => fmt(new Date(Date.now() + (minD + Math.random()*(maxD-minD))*86400000));
   const pastDate   = (minY, maxY) => fmt(new Date(Date.now() - (minY + Math.random()*(maxY-minY))*365.25*86400000));
 
+  const formatBirthDate = (key, label, placeholder, type) => {
+    const minY = 20;
+    const maxY = 50;
+    const d = new Date(Date.now() - (minY + Math.random()*(maxY-minY))*365.25*86400000);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    
+    // Native date inputs always require YYYY-MM-DD
+    if (type === 'date') return `${year}-${month}-${day}`;
+    
+    const combined = `${key} ${label} ${placeholder}`.toLowerCase();
+    
+    if (/dd[-\/.]mm[-\/.]yyyy/i.test(combined)) {
+      const sep = combined.includes('/') ? '/' : (combined.includes('.') ? '.' : '-');
+      return `${day}${sep}${month}${sep}${year}`;
+    }
+    if (/mm[-\/.]dd[-\/.]yyyy/i.test(combined)) {
+      const sep = combined.includes('/') ? '/' : (combined.includes('.') ? '.' : '-');
+      return `${month}${sep}${day}${sep}${year}`;
+    }
+    if (/yyyy[-\/.]mm[-\/.]dd/i.test(combined)) {
+      const sep = combined.includes('/') ? '/' : (combined.includes('.') ? '.' : '-');
+      return `${year}${sep}${month}${sep}${day}`;
+    }
+    
+    // Default: YYYY-MM-DD (universal standard)
+    return `${year}-${month}-${day}`;
+  };
+
   const aadhar = () => `${digs(4)} ${digs(4)} ${digs(4)}`;
   const pan    = () => { const L='ABCDEFGHIJKLMNOPQRSTUVWXYZ', l=()=>L[rn(0,25)]; return `${l()}${l()}${l()}${l()}${l()}${rn(1000,9999)}${l()}`; };
 
@@ -284,6 +314,7 @@ window.AUTOSCRIBE_DATA = (() => {
   const RULES = [
     { match: ['firstname','fname'],                  value: () => firstName },
     { match: ['lastname','lname','surname'],          value: () => lastName },
+    { match: ['dateofbirth','dob','birthdate','birthday','birth'], value: (key, label, placeholder, type) => formatBirthDate(key, label, placeholder, type) },
     { match: ['fullname','customername','contactname','name'], value: () => fullName },
     { match: ['email'],                              value: () => email },
     { match: ['starttime'],                          value: () => startTime },
@@ -331,17 +362,23 @@ window.AUTOSCRIBE_DATA = (() => {
   ];
 
   // ── Select option matchers ────────────────────────────────────────────────
+  const getOptText = o => {
+    if (!o) return '';
+    if (typeof o === 'string') return o;
+    return String(o.text || o.label || o.name || o.title || o.displayName || o.value || o);
+  };
+
   const SELECT_RULES = [
-    { match: ['gender','sex'],        pick: opts => opts.find(o => /male|female|other/i.test(o.text||o.label||o)) },
-    { match: ['blood'],               pick: opts => opts.find(o => BLOOD_GROUPS.includes((o.text||o.label||o).trim())) },
-    { match: ['department','dept'],   pick: opts => opts.find(o => DEPARTMENTS.some(d => _norm(o.text||o.label||o).includes(_norm(d)))) },
-    { match: ['designation','role','position'], pick: opts => opts.find(o => DESIGNATIONS.some(d => _norm(o.text||o.label||o).includes(_norm(d)))) },
-    { match: ['bank'],                pick: opts => opts.find(o => BANKS.some(b => _norm(o.text||o.label||o).includes(_norm(b)))) },
-    { match: ['state','province'],    pick: opts => opts.find(o => /gujarat|maharashtra|delhi|karnataka/i.test(o.text||o.label||o)) },
-    { match: ['nationality'],         pick: opts => opts.find(o => /indian/i.test(o.text||o.label||o)) },
-    { match: ['country'],             pick: opts => opts.find(o => /india/i.test(o.text||o.label||o)) },
-    { match: ['marital'],             pick: opts => opts.find(o => /single|married/i.test(o.text||o.label||o)) },
-    { match: ['relation'],            pick: opts => opts.find(o => /father|mother|spouse|brother|sister/i.test(o.text||o.label||o)) },
+    { match: ['gender','sex'],        pick: opts => opts.find(o => /male|female|other/i.test(getOptText(o))) },
+    { match: ['blood'],               pick: opts => opts.find(o => BLOOD_GROUPS.includes(getOptText(o).trim())) },
+    { match: ['department','dept'],   pick: opts => opts.find(o => DEPARTMENTS.some(d => _norm(getOptText(o)).includes(_norm(d)))) },
+    { match: ['designation','role','position'], pick: opts => opts.find(o => DESIGNATIONS.some(d => _norm(getOptText(o)).includes(_norm(d)))) },
+    { match: ['bank'],                pick: opts => opts.find(o => BANKS.some(b => _norm(getOptText(o)).includes(_norm(b)))) },
+    { match: ['state','province'],    pick: opts => opts.find(o => /gujarat|maharashtra|delhi|karnataka/i.test(getOptText(o))) },
+    { match: ['nationality'],         pick: opts => opts.find(o => /indian/i.test(getOptText(o))) },
+    { match: ['country'],             pick: opts => opts.find(o => /india/i.test(getOptText(o))) },
+    { match: ['marital'],             pick: opts => opts.find(o => /single|married/i.test(getOptText(o))) },
+    { match: ['relation'],            pick: opts => opts.find(o => /father|mother|spouse|brother|sister/i.test(getOptText(o))) },
   ];
 
   function _norm(s) { return String(s).toLowerCase().replace(/[-_\s[\]./*]/g,''); }
@@ -350,7 +387,7 @@ window.AUTOSCRIBE_DATA = (() => {
     const c = _norm(`${key} ${label} ${placeholder}`);
     for (const rule of RULES) {
       if (rule.match.some(p => c.includes(p))) {
-        const val = rule.value();
+        const val = rule.value(key, label, placeholder, type);
         // Skip rules that produce non-numeric strings for number inputs —
         // setting a string on input[type="number"] throws a DOMException.
         if (type === 'number' && isNaN(Number(String(val)))) continue;

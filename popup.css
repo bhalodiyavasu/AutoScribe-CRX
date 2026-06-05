@@ -475,3 +475,24 @@
 .autoscribe-floating.crx-collapsed::after {
   display: none !important;
 }
+
+/* Disable minimize button when filling is active */
+.autoscribe-floating.crx-filling #crx-minimize-btn {
+  pointer-events: none !important;
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* Ensure all other header icons remain clickable with pointer cursor */
+.autoscribe-floating.crx-filling .crx-header-icons:not(#crx-minimize-btn) {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+/* Ensure drag handle remains grab-able */
+.autoscribe-floating.crx-filling .crx-drag-icon {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: grab !important;
+}

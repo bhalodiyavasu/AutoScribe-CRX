@@ -8,11 +8,11 @@
       }
       if (msg.type === 'TRIGGER_FILL') {
         const root = document.getElementById('autoscribe-panel-root');
-        if (root) {
+        if (root && typeof root.executeFillFlow === 'function') {
           if (typeof root.expandPanel === 'function') root.expandPanel();
-          if (typeof root.executeFillFlow === 'function') {
-            root.executeFillFlow(msg.mode, msg.target);
-          }
+          root.executeFillFlow(msg.mode, msg.target);
+        } else {
+          window.autoscribePendingFill = { mode: msg.mode, target: msg.target };
         }
         sendResponse({ status: 'started' });
         return true;
@@ -251,7 +251,7 @@
           return mp.options
             .flatMap(o => (o.data && Array.isArray(o.data)) ? o.data : [o])
             .filter(o => !o.disabled)
-            .map(o => ({ text: o.label ?? String(o.value ?? o), value: o.value ?? o }));
+            .map(o => ({ text: o.label ?? o.text ?? o.name ?? o.title ?? o.displayName ?? String(o.value ?? o), value: o.value ?? o }));
         }
         fiber = fiber.return;
       }
@@ -313,40 +313,88 @@
     );
 
   // ── Silent overlay fallback ────────────────────────────────────────────────
-  const silentSelectFallback = async (trigger, pickFn) => {
-    let portal = null;
-    const hideEl = node => {
-      node.style.setProperty('visibility', 'hidden', 'important');
-      node.style.setProperty('animation', 'none', 'important');
-      node.style.setProperty('transition', 'none', 'important');
-    };
+  const silentSelectFallback = (trigger, pickFn) => {
+    return new Promise(resolve => {
+      let portal = null;
+      let resolved = false;
 
-    const obs = new MutationObserver(mutations => {
-      for (const m of mutations) {
-        for (const node of m.addedNodes) {
-          if (node.nodeType !== 1) continue;
-          const hasItems = node.querySelector?.('[role="listbox"],[role="menu"],[role="menuitem"],[role="option"]');
-          const isPortal = 'radixPopperContentWrapper' in (node.dataset ?? {}) || hasItems;
-          if (isPortal) { hideEl(node); portal = node; }
+      // Inject a global style that hides ALL new portals by default during this operation
+      const hideSheet = document.createElement('style');
+      hideSheet.textContent = `
+        [data-radix-popper-content-wrapper],
+        [role="listbox"], [role="menu"],
+        [data-state="open"][data-side] {
+          visibility: hidden !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          position: fixed !important;
+          top: -9999px !important;
+          left: -9999px !important;
         }
-      }
-    });
+      `;
+      document.head.appendChild(hideSheet);
 
-    obs.observe(document.body, { childList: true });
-    tap(trigger);
-    await sleep(280);
-    obs.disconnect();
+      const cleanup = () => {
+        try { hideSheet.remove(); } catch (_) {}
+      };
 
-    const items = getOverlayItems();
-    const chosen = pickFn(items);
-    if (chosen) {
-      tap(chosen);
-    } else {
+      const doSelect = () => {
+        if (resolved) return;
+        resolved = true;
+        obs.disconnect();
+        clearTimeout(timeoutId);
+
+        const items = getOverlayItems();
+        const chosen = pickFn(items);
+        if (chosen) {
+          tap(chosen);
+        } else {
+          tap(trigger);
+        }
+
+        // Delay cleanup to let the portal close completely while still hidden
+        setTimeout(() => {
+          cleanup();
+          if (portal) {
+            try {
+              if (document.body.contains(portal)) {
+                portal.style.cssText = '';
+              }
+            } catch (_) {}
+          }
+        }, 200);
+        resolve();
+      };
+
+      const obs = new MutationObserver(mutations => {
+        for (const m of mutations) {
+          for (const node of m.addedNodes) {
+            if (node.nodeType !== 1) continue;
+            const hasItems = node.querySelector?.('[role="listbox"],[role="menu"],[role="menuitem"],[role="option"]');
+            const isPortal = 'radixPopperContentWrapper' in (node.dataset ?? {}) || hasItems;
+            if (isPortal) {
+              // Force-hide the portal node directly as well
+              node.style.setProperty('visibility', 'hidden', 'important');
+              node.style.setProperty('opacity', '0', 'important');
+              node.style.setProperty('pointer-events', 'none', 'important');
+              node.style.setProperty('position', 'fixed', 'important');
+              node.style.setProperty('top', '-9999px', 'important');
+              node.style.setProperty('left', '-9999px', 'important');
+              portal = node;
+              setTimeout(doSelect, 0);
+              return;
+            }
+          }
+        }
+      });
+
+      obs.observe(document.body, { childList: true });
       tap(trigger);
-    }
 
-    await sleep(120);
-    if (portal) portal.style.visibility = '';
+      const timeoutId = setTimeout(() => {
+        doSelect();
+      }, 200);
+    });
   };
 
   // ── State ─────────────────────────────────────────────────────────────────
@@ -615,6 +663,7 @@
 
     for (const f of fields) {
       if (!document.getElementById('autoscribe-panel-root')) return;
+      await new Promise(r => setTimeout(r, 0));
       let val = values[f.id];
 
       if (mode === 'AI') {
@@ -644,7 +693,9 @@
 
       try {
         if (f.type === 'select') {
-          const chosen = Array.from(el.options).find(o => norm(o.value) === norm(val) || norm(o.text) === norm(val)) || el.options[0];
+          const validOpts = Array.from(el.options).filter(o => o.value && !o.disabled);
+          const chosen = Array.from(el.options).find(o => norm(o.value) === norm(val) || norm(o.text) === norm(val)) || 
+                         (validOpts.length > 0 ? validOpts[Math.floor(Math.random() * validOpts.length)] : el.options[0]);
           setVal(el, chosen.value);
           glow(el, true);
         } else if (f.type === 'checkbox') {
@@ -672,12 +723,14 @@
           }
         } else if (f.type === 'custom-dropdown') {
           const fiberFilled = fillViaFiber(el, flat => {
-            return flat.find(o => norm(o.label ?? String(o.value ?? o)) === norm(val) || norm(o.value ?? o) === norm(val)) ?? flat[0];
+            return flat.find(o => norm(o.label ?? o.text ?? o.name ?? o.title ?? o.displayName ?? String(o.value ?? o)) === norm(val) || norm(o.value ?? o) === norm(val)) ?? 
+                   flat[Math.floor(Math.random() * flat.length)];
           });
           if (!fiberFilled) {
             await silentSelectFallback(el, items => {
               if (!items.length) return null;
-              return items.find(i => norm(i.textContent.trim()) === norm(val) || norm(i.getAttribute('data-value')) === norm(val)) ?? items[0];
+              return items.find(i => norm(i.textContent.trim()) === norm(val) || norm(i.getAttribute('data-value')) === norm(val)) ?? 
+                     items[Math.floor(Math.random() * items.length)];
             });
           }
           glow(el, true);
@@ -1004,13 +1057,20 @@
       const captureTarget = isCollapsed ? container : handle;
       try { captureTarget.setPointerCapture(e.pointerId); } catch (_) {}
 
+      if (!isCollapsed) {
+        handle.style.cursor = 'grabbing';
+      }
+      container.style.cursor = 'grabbing';
+
       e.stopPropagation();
       e.preventDefault();
       resetInactivityTimer();
     });
 
+    let dragRafId = null;
     const handleMove = e => {
       if (!isDragging) return;
+      e.stopPropagation();
 
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
@@ -1020,23 +1080,28 @@
         root.setAttribute('data-has-been-dragged', 'true');
       }
 
-      const rect = root.getBoundingClientRect();
-      let newLeft = e.clientX - offsetX;
-      let newTop = e.clientY - offsetY;
+      // Capture coordinates and batch DOM updates via rAF for buttery-smooth drag
+      const cx = e.clientX;
+      const cy = e.clientY;
+      if (dragRafId) return;
+      dragRafId = requestAnimationFrame(() => {
+        dragRafId = null;
+        const rect = root.getBoundingClientRect();
+        let newLeft = cx - offsetX;
+        let newTop = cy - offsetY;
 
-      // Keep within viewport boundaries
-      const maxLeft = window.innerWidth - rect.width;
-      const maxTop = window.innerHeight - rect.height;
+        const maxLeft = window.innerWidth - rect.width;
+        const maxTop = window.innerHeight - rect.height;
 
-      if (newLeft < 0) newLeft = 0;
-      if (newLeft > maxLeft) newLeft = maxLeft;
-      if (newTop < 0) newTop = 0;
-      if (newTop > maxTop) newTop = maxTop;
+        if (newLeft < 0) newLeft = 0;
+        if (newLeft > maxLeft) newLeft = maxLeft;
+        if (newTop < 0) newTop = 0;
+        if (newTop > maxTop) newTop = maxTop;
 
-      root.style.left = `${newLeft}px`;
-      root.style.top = `${newTop}px`;
-      root.style.right = 'auto';
-      e.stopPropagation();
+        root.style.left = `${newLeft}px`;
+        root.style.top = `${newTop}px`;
+        root.style.right = 'auto';
+      });
     };
 
     const handleUp = e => {
@@ -1046,6 +1111,11 @@
       const isCollapsed = container.classList.contains('crx-collapsed');
       const captureTarget = isCollapsed ? container : handle;
       try { captureTarget.releasePointerCapture(e.pointerId); } catch (_) {}
+
+      if (!isCollapsed) {
+        handle.style.cursor = '';
+      }
+      container.style.cursor = '';
 
       e.stopPropagation();
 
@@ -1254,6 +1324,13 @@
       aiFailed = false;
       currentFillMode = mode;
       updateFillStatus(mode);
+      container.classList.add('crx-filling');
+
+      const getClickedElement = () => {
+        const active = document.activeElement;
+        const activeFallback = active && active !== document.body && active !== document.documentElement ? active : null;
+        return lastRightClickedElement || activeFallback;
+      };
 
       if (mode === 'AI') {
         const settings = await chrome.storage.local.get([
@@ -1356,9 +1433,12 @@
             mode,
             scanScope: (sc) => {
               let fields = scanScope(sc);
-              if (target === 'field' && lastRightClickedElement) {
-                const targetId = getOrAssignId(lastRightClickedElement);
-                fields = fields.filter(f => f.id === targetId);
+              if (target === 'field') {
+                const clicked = getClickedElement();
+                if (clicked) {
+                  const targetId = getOrAssignId(clicked);
+                  fields = fields.filter(f => f.id === targetId);
+                }
               }
               return fields;
             },
@@ -1370,11 +1450,12 @@
             glow,
             setVal: (el, val) => {
               if (target === 'field') {
+                const clicked = getClickedElement();
                 const isTargetElement = (targetEl) => {
-                  if (!lastRightClickedElement) return false;
-                  return targetEl === lastRightClickedElement || 
-                         lastRightClickedElement.contains(targetEl) || 
-                         targetEl.contains(lastRightClickedElement);
+                  if (!clicked) return false;
+                  return targetEl === clicked || 
+                         clicked.contains(targetEl) || 
+                         targetEl.contains(clicked);
                 };
                 if (isTargetElement(el)) setVal(el, val);
               } else {
@@ -1383,11 +1464,12 @@
             },
             tap: (el) => {
               if (target === 'field') {
+                const clicked = getClickedElement();
                 const isTargetElement = (targetEl) => {
-                  if (!lastRightClickedElement) return false;
-                  return targetEl === lastRightClickedElement || 
-                         lastRightClickedElement.contains(targetEl) || 
-                         targetEl.contains(lastRightClickedElement);
+                  if (!clicked) return false;
+                  return targetEl === clicked || 
+                         clicked.contains(targetEl) || 
+                         targetEl.contains(clicked);
                 };
                 if (isTargetElement(el)) tap(el);
               } else {
@@ -1430,9 +1512,12 @@
         // Unified fill logic for both AI and NORMAL modes
         const fillScopeFields = async () => {
           let fields = scanScope(scope);
-          if (target === 'field' && lastRightClickedElement) {
-            const targetId = getOrAssignId(lastRightClickedElement);
-            fields = fields.filter(f => f.id === targetId);
+          if (target === 'field') {
+            const clicked = getClickedElement();
+            if (clicked) {
+              const targetId = getOrAssignId(clicked);
+              fields = fields.filter(f => f.id === targetId);
+            }
           }
           if (fields.length === 0) return;
           if (mode === 'AI') {
@@ -1504,7 +1589,7 @@
         }
       } finally {
         if (document.getElementById('autoscribe-panel-root')) {
-          container.classList.remove('crx-loading-ai', 'crx-loading-quick');
+          container.classList.remove('crx-loading-ai', 'crx-loading-quick', 'crx-filling');
           setTimeout(() => {
             isFilling = false;
             setRowsEnabled(true);
@@ -1529,6 +1614,14 @@
     // Expose control functions on root DOM node for top-level message listener accessibility
     root.executeFillFlow = executeFillFlow;
     root.expandPanel = expandPanel;
+
+    // Execute any pending fill that was requested before mount finished
+    if (window.autoscribePendingFill) {
+      const { mode, target } = window.autoscribePendingFill;
+      window.autoscribePendingFill = null;
+      expandPanel();
+      executeFillFlow(mode, target);
+    }
 
   };
 

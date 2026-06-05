@@ -109,39 +109,45 @@ window.KRISPER_DATA = (() => {
   const resolveSelect = (key, label, opts) => {
     const combined = norm(`${key} ${label}`);
     
+    const getOptText = o => {
+      if (!o) return '';
+      if (typeof o === 'string') return o;
+      return String(o.text || o.label || o.name || o.title || o.displayName || o.value || o);
+    };
+    
     if (combined.includes('status')) {
       // Prefer Active
-      const act = opts.find(o => norm(o.text || o.label || o).includes('active'));
+      const act = opts.find(o => norm(getOptText(o)).includes('active'));
       if (act) return act.value ?? act;
     }
 
     if (combined.includes('country')) {
-      const ind = opts.find(o => norm(o.text || o.label || o).includes('india'));
+      const ind = opts.find(o => norm(getOptText(o)).includes('india'));
       if (ind) return ind.value ?? ind;
     }
 
     if (combined.includes('state')) {
-      const guj = opts.find(o => norm(o.text || o.label || o).includes('gujarat'));
+      const guj = opts.find(o => norm(getOptText(o)).includes('gujarat'));
       if (guj) return guj.value ?? guj;
     }
 
     if (combined.includes('city')) {
-      const ahm = opts.find(o => norm(o.text || o.label || o).includes('ahmedabad'));
+      const ahm = opts.find(o => norm(getOptText(o)).includes('ahmedabad'));
       if (ahm) return ahm.value ?? ahm;
     }
 
     if (combined.includes('discounttype')) {
-      const pct = opts.find(o => norm(o.text || o.label || o).includes('percentage'));
+      const pct = opts.find(o => norm(getOptText(o)).includes('percentage'));
       if (pct) return pct.value ?? pct;
     }
 
     if (combined.includes('paymenttype')) {
-      const cash = opts.find(o => norm(o.text || o.label || o).includes('cash') || norm(o.text || o.label || o).includes('upi'));
+      const cash = opts.find(o => norm(getOptText(o)).includes('cash') || norm(getOptText(o)).includes('upi'));
       if (cash) return cash.value ?? cash;
     }
 
     if (combined.includes('transactiontype')) {
-      const debit = opts.find(o => norm(o.text || o.label || o).includes('debit'));
+      const debit = opts.find(o => norm(getOptText(o)).includes('debit'));
       if (debit) return debit.value ?? debit;
     }
 
@@ -159,7 +165,10 @@ window.KRISPER_DATA = (() => {
       const opts = field.options || [];
       const resolved = resolveSelect(n, l, opts);
       if (resolved !== null) return resolved;
-      if (opts.length > 0) return opts[0].value ?? opts[0];
+      if (opts.length > 0) {
+        const randOpt = opts[Math.floor(Math.random() * opts.length)];
+        return randOpt.value ?? randOpt;
+      }
       return null;
     }
 
