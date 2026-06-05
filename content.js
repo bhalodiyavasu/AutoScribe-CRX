@@ -800,7 +800,7 @@
     // Load glassmorphic styles from modular popup.css
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = chrome.runtime.getURL('popup.css');
+    link.href = chrome.runtime.getURL('popup/popup.css');
     shadow.appendChild(link);
 
     const container = document.createElement('div');
@@ -812,7 +812,7 @@
     });
 
     // Load separate HTML structure dynamically
-    const htmlUrl = chrome.runtime.getURL('popup.html');
+    const htmlUrl = chrome.runtime.getURL('popup/popup.html');
     const htmlRes = await fetch(htmlUrl);
     const htmlContent = await htmlRes.text();
     container.innerHTML = htmlContent;

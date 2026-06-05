@@ -13,14 +13,14 @@
   "permissions": ["activeTab", "scripting", "storage", "sidePanel", "contextMenus"],
   "host_permissions": ["<all_urls>"],
   "side_panel": {
-    "default_path": "sidepanel.html"
+    "default_path": "sidepanel/sidepanel.html"
   },
   "icons": {
     "128": "icons/icon.png"
   },
   "web_accessible_resources": [
     {
-      "resources": ["popup.css", "popup.html", "icons/icon.png"],
+      "resources": ["popup/popup.css", "popup/popup.html", "icons/icon.png"],
       "matches": ["<all_urls>"]
     }
   ]

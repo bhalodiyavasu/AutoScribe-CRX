@@ -8,7 +8,7 @@ chrome.action.onClicked.addListener(async (tab) => {
   try {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ['data.js', 'krisper-data.js', 'content.js']
+      files: ['data.js', 'krisper/krisper-data.js', 'content.js']
     });
   } catch (e) { console.error('[AutoScribe]', e); }
 });
@@ -91,7 +91,7 @@ async function ensureContentScriptsInjected(tabId) {
         try {
           await chrome.scripting.executeScript({
             target: { tabId },
-            files: ['data.js', 'krisper-data.js', 'content.js']
+            files: ['data.js', 'krisper/krisper-data.js', 'content.js']
           });
         } catch (err) {
           console.error('[AutoScribe] Script injection failed:', err);
