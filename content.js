@@ -939,6 +939,11 @@
 
     const collapsePanel = (isAutomatic = false) => {
       if (container.classList.contains('crx-collapsed')) return;
+      // Never auto-minimize while a fill operation is running
+      if (isAutomatic && container.classList.contains('crx-filling')) {
+        startInactivityTimer(); // restart timer, check again after next 1 min
+        return;
+      }
 
       container.classList.remove('crx-settings-open');
 
@@ -1594,6 +1599,8 @@
             isFilling = false;
             setRowsEnabled(true);
           }, 500);
+          // Restart 1-min inactivity timer after fill completes
+          resetInactivityTimer();
         } else {
           isFilling = false;
         }
