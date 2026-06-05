@@ -6,6 +6,11 @@ const OPENROUTER_MODELS = ['openrouter/free'];
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab.id) return;
   try {
+    await chrome.sidePanel.setOptions({
+      tabId: tab.id,
+      path: 'sidepanel/sidepanel.html',
+      enabled: true
+    }).catch(() => {});
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       files: ['data.js', 'krisper/krisper-data.js', 'content.js']
@@ -82,6 +87,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 async function ensureContentScriptsInjected(tabId) {
+  try {
+    await chrome.sidePanel.setOptions({
+      tabId,
+      path: 'sidepanel/sidepanel.html',
+      enabled: true
+    }).catch(() => {});
+  } catch (e) {}
   for (let i = 0; i < 3; i++) {
     try {
       await chrome.tabs.sendMessage(tabId, { type: 'PING' });
