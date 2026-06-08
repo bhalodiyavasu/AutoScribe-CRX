@@ -255,7 +255,7 @@ window.AUTOSCRIBE_DATA = (() => {
     lastName   = pick(LAST);
     fullName   = `${firstName} ${lastName}`;
     city       = pick(CITIES);
-    state      = pick(STATES);
+    state      = 'Gujarat';
     pin        = pick(PINS);
     address    = `${rn(1, 999)}, ${pick(STREETS)}, ${pick(AREAS)}, ${city} - ${pin}`;
 
@@ -374,7 +374,7 @@ window.AUTOSCRIBE_DATA = (() => {
     { match: ['department','dept'],   pick: opts => opts.find(o => DEPARTMENTS.some(d => _norm(getOptText(o)).includes(_norm(d)))) },
     { match: ['designation','role','position'], pick: opts => opts.find(o => DESIGNATIONS.some(d => _norm(getOptText(o)).includes(_norm(d)))) },
     { match: ['bank'],                pick: opts => opts.find(o => BANKS.some(b => _norm(getOptText(o)).includes(_norm(b)))) },
-    { match: ['state','province'],    pick: opts => opts.find(o => /gujarat|maharashtra|delhi|karnataka/i.test(getOptText(o))) },
+    { match: ['state','province'],    pick: opts => opts.find(o => /gujarat/i.test(getOptText(o))) || opts.find(o => /maharashtra|delhi|karnataka/i.test(getOptText(o))) },
     { match: ['nationality'],         pick: opts => opts.find(o => /indian/i.test(getOptText(o))) },
     { match: ['country'],             pick: opts => opts.find(o => /india/i.test(getOptText(o))) },
     { match: ['marital'],             pick: opts => opts.find(o => /single|married/i.test(getOptText(o))) },

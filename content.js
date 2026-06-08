@@ -666,13 +666,23 @@
       await new Promise(r => setTimeout(r, 0));
       let val = values[f.id];
 
-      if (mode === 'AI') {
-        if (val === undefined || val === null) continue;
-      } else if (mode === 'NORMAL') {
-        val = generateLocalData(f);
-        if (val === null) {
-          unresolvedFields.push(f);
-          continue;
+      const normStr = (window.AUTOSCRIBE_DATA && typeof window.AUTOSCRIBE_DATA._norm === 'function')
+        ? window.AUTOSCRIBE_DATA._norm(`${f.name} ${f.label} ${f.placeholder}`)
+        : `${f.name} ${f.label} ${f.placeholder}`.toLowerCase().replace(/[-_\s[\]./*]/g,'');
+
+      if (normStr.includes('country')) {
+        val = 'India';
+      } else if (normStr.includes('state') || normStr.includes('province')) {
+        val = 'Gujarat';
+      } else {
+        if (mode === 'AI') {
+          if (val === undefined || val === null) continue;
+        } else if (mode === 'NORMAL') {
+          val = generateLocalData(f);
+          if (val === null) {
+            unresolvedFields.push(f);
+            continue;
+          }
         }
       }
 

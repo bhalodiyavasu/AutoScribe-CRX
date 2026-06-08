@@ -137,6 +137,7 @@ function generatePrompt(fields, sessionSeed) {
 RULES:
 - Name: Indian. Phone: "+91 XXXXX XXXXX" (starts with 6-9). Email: gmail/yahoo/outlook.in
 - Address: realistic Indian street, city, state, pincode. Aadhar: "XXXX XXXX XXXX". PAN: "ABCDE1234F"
+- Country must ALWAYS be "India" and state/province must ALWAYS be "Gujarat" (city can be any).
 - For "o" (options) → select ONLY from the provided options list
 - Date: YYYY-MM-DD. Time: HH:MM (DOB: 20-40 years ago, Joining: future)
 - Checkbox: true/false. Number: respect min/max
